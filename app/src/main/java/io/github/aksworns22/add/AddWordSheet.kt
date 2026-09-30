@@ -12,6 +12,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.OutputTransformation
+import androidx.compose.foundation.text.input.TextFieldBuffer
+import androidx.compose.foundation.text.input.TextFieldDecorator
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,12 +30,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -37,17 +39,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.aksworns22.home.Word
-import io.github.aksworns22.ui.highlight
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -58,15 +55,15 @@ fun AddWordSheet(
     onAdd: (Word) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var term by rememberSaveable { mutableStateOf("") }
-    var meaning by rememberSaveable { mutableStateOf("") }
-    var example by rememberSaveable { mutableStateOf("") }
-    val canAdd = term.isNotBlank() && meaning.isNotBlank()
+    val term = rememberTextFieldState()
+    val meaning = rememberTextFieldState()
+    val example = rememberTextFieldState()
+    val canAdd = term.text.isNotBlank() && meaning.text.isNotBlank()
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val add = {
-        val word = Word(term.trim(), meaning.trim(), example.trim())
+        val word = Word(term.text.trim().toString(), meaning.text.trim().toString(), example.text.trim().toString())
         scope.launch { sheetState.hide() }.invokeOnCompletion { onAdd(word) }
     }
 
@@ -88,9 +85,8 @@ fun AddWordSheet(
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
         ) {
             SheetField(
+                state = term,
                 placeholder = "word",
-                value = term,
-                onValueChange = { term = it },
                 textStyle = MaterialTheme.typography.headlineSmallEmphasized,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -101,22 +97,20 @@ fun AddWordSheet(
             Spacer(Modifier.height(12.dp))
             // 뜻과 예문은 단어를 설명하는 한 묶음이라 segmented 그룹으로 붙인다.
             SheetField(
+                state = meaning,
                 placeholder = "뜻",
-                value = meaning,
-                onValueChange = { meaning = it },
                 shape = RoundedCornerShape(20.dp, 20.dp, 4.dp, 4.dp)
             )
             Spacer(Modifier.height(2.dp))
             SheetField(
+                state = example,
                 placeholder = "예문 (선택)",
-                value = example,
-                onValueChange = { example = it },
                 shape = RoundedCornerShape(4.dp, 4.dp, 20.dp, 20.dp),
                 singleLine = false,
                 // 예문 속 단어가 눈에 띄도록 입력 중인 단어를 강조한다.
-                visualTransformation =
+                outputTransformation =
                     HighlightTransformation(
-                        keyword = term.trim(),
+                        keyword = term.text.trim().toString(),
                         style =
                             SpanStyle(
                                 color = MaterialTheme.colorScheme.primary,
@@ -145,11 +139,11 @@ fun AddWordSheet(
     }
 }
 
+/** 시트의 입력칸. */
 @Composable
 private fun SheetField(
+    state: TextFieldState,
     placeholder: String,
-    value: String,
-    onValueChange: (String) -> Unit,
     shape: Shape,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
@@ -157,53 +151,56 @@ private fun SheetField(
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
     singleLine: Boolean = true,
     autoCorrect: Boolean = true,
-    visualTransformation: VisualTransformation = VisualTransformation.None
+    outputTransformation: OutputTransformation? = null
 ) {
     val style = textStyle.copy(color = contentColor)
     BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
+        state = state,
         modifier = modifier.fillMaxWidth(),
         textStyle = style,
-        singleLine = singleLine,
-        minLines = if (singleLine) 1 else 2,
+        lineLimits =
+            if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(minHeightInLines = 2),
         cursorBrush = SolidColor(contentColor),
         keyboardOptions =
             KeyboardOptions(
                 autoCorrectEnabled = autoCorrect,
                 imeAction = if (singleLine) ImeAction.Next else ImeAction.Default
             ),
-        visualTransformation = visualTransformation,
-        decorationBox = { innerTextField ->
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(containerColor, shape)
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-            ) {
-                if (value.isEmpty()) {
-                    Text(
-                        text = placeholder,
-                        style = style,
-                        color = contentColor.copy(alpha = 0.6f)
-                    )
+        outputTransformation = outputTransformation,
+        decorator =
+            TextFieldDecorator { innerTextField ->
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(containerColor, shape)
+                            .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    if (state.text.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = style,
+                            color = contentColor.copy(alpha = 0.6f)
+                        )
+                    }
+                    innerTextField()
                 }
-                innerTextField()
             }
-        }
     )
 }
 
 /** 입력 중인 글자는 그대로 두고 [keyword]와 일치하는 부분만 강조한다. */
-private class HighlightTransformation(
+private data class HighlightTransformation(
     private val keyword: String,
     private val style: SpanStyle
-) : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText =
-        TransformedText(text.text.highlight(keyword, style), OffsetMapping.Identity)
-
-    override fun equals(other: Any?): Boolean = other is HighlightTransformation && other.keyword == keyword && other.style == style
-
-    override fun hashCode(): Int = 31 * keyword.hashCode() + style.hashCode()
+) : OutputTransformation {
+    override fun TextFieldBuffer.transformOutput() {
+        if (keyword.isEmpty()) return
+        val text = toString()
+        var start = text.indexOf(keyword, ignoreCase = true)
+        while (start >= 0) {
+            addStyle(style, start, start + keyword.length)
+            start = text.indexOf(keyword, start + keyword.length, ignoreCase = true)
+        }
+    }
 }
