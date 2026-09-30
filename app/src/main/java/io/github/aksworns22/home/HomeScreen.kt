@@ -67,6 +67,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -128,6 +131,7 @@ fun HomeScreen(
             itemsIndexed(visibleWords, key = { _, word -> word.card.id }) { index, word ->
                 WordItem(
                     word = word,
+                    keyword = query.trim(),
                     index = index,
                     count = visibleWords.size,
                     onClick = { onWordClick(word) },
@@ -306,28 +310,53 @@ private fun AddButton(
 @Composable
 private fun WordItem(
     word: Word,
+    keyword: String,
     index: Int,
     count: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val highlight =
+        SpanStyle(
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.ExtraBold
+        )
     SegmentedListItem(
         onClick = onClick,
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         modifier = modifier,
         colors = ListItemDefaults.segmentedColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         supportingContent = {
-            Text(word.meaning, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                text = word.meaning.highlight(keyword, highlight),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     ) {
         Text(
-            text = word.term,
+            text = word.term.highlight(keyword, highlight),
             style = MaterialTheme.typography.titleLargeEmphasized,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
 }
+
+/** [keyword]와 일치하는 모든 부분에 [style]을 입힌다. */
+private fun String.highlight(
+    keyword: String,
+    style: SpanStyle
+): AnnotatedString =
+    buildAnnotatedString {
+        append(this@highlight)
+        if (keyword.isEmpty()) return@buildAnnotatedString
+        var start = this@highlight.indexOf(keyword, ignoreCase = true)
+        while (start >= 0) {
+            addStyle(style, start, start + keyword.length)
+            start = this@highlight.indexOf(keyword, start + keyword.length, ignoreCase = true)
+        }
+    }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
