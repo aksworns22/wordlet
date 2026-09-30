@@ -4,3 +4,5 @@ root = true
 # trailing comma 없어도 허용
 ktlint_standard_trailing-comma-on-call-site = disabled
 ktlint_standard_trailing-comma-on-declaration-site = disabled
+# Compose 함수는 PascalCase 허용
+ktlint_function_naming_ignore_when_annotated_with = Composable
