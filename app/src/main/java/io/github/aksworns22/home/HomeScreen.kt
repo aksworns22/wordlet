@@ -1,6 +1,7 @@
 package io.github.aksworns22.home
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -44,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +63,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.aksworns22.R
 import io.github.aksworns22.ui.theme.WordletTheme
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -88,11 +91,16 @@ fun HomeScreen(
             HomeTopBar(
                 query = query,
                 onQueryChange = { query = it },
-                onAddClick = onAddClick
+                onAddClick = onAddClick,
+                nudgeAddButton = words.isEmpty()
             )
         },
-        bottomBar = { StudyBar(onClick = onStudyClick) }
+        bottomBar = { if (words.isNotEmpty()) StudyBar(onClick = onStudyClick) }
     ) { innerPadding ->
+        if (words.isEmpty()) {
+            NoWords(Modifier.padding(innerPadding))
+            return@Scaffold
+        }
         if (visibleWords.isEmpty()) {
             EmptyResult(Modifier.padding(innerPadding))
             return@Scaffold
@@ -128,7 +136,8 @@ fun HomeScreen(
 private fun HomeTopBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    nudgeAddButton: Boolean
 ) {
     Row(
         modifier =
@@ -166,20 +175,40 @@ private fun HomeTopBar(
                 }
             )
         }
-        AddButton(onClick = onAddClick)
+        AddButton(onClick = onAddClick, nudge = nudgeAddButton)
     }
 }
 
-/** 누르면 쿠키 모양 컨테이너가 스프링으로 회전하는 추가 버튼 */
+/**
+ * 누르면 쿠키 모양 컨테이너가 스프링으로 회전하는 추가 버튼.
+ * [nudge]가 true면 주기적으로 흔들려 시선을 끈다.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AddButton(onClick: () -> Unit) {
+private fun AddButton(
+    onClick: () -> Unit,
+    nudge: Boolean
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    val rotation by animateFloatAsState(
+    val pressRotation by animateFloatAsState(
         targetValue = if (pressed) 90f else 0f,
         animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
     )
+    val nudgeRotation = remember { Animatable(0f) }
+    val nudgeSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    LaunchedEffect(nudge) {
+        if (!nudge) {
+            nudgeRotation.animateTo(0f, nudgeSpec)
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(1600)
+            nudgeRotation.animateTo(45f, nudgeSpec)
+            nudgeRotation.animateTo(0f, nudgeSpec)
+        }
+    }
+    val rotation = pressRotation + nudgeRotation.value
     val shape = MaterialShapes.Cookie9Sided.toShape()
     Box(
         modifier =
@@ -262,6 +291,33 @@ private fun StudyBar(onClick: () -> Unit) {
     }
 }
 
+/** 저장된 단어가 하나도 없을 때 보여주는 화면 */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun NoWords(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(120.dp)
+                    .clip(MaterialShapes.Flower.toShape())
+                    .background(MaterialTheme.colorScheme.tertiaryContainer)
+        )
+        Spacer(Modifier.height(24.dp))
+        Text("아직 단어가 없어요", style = MaterialTheme.typography.headlineSmallEmphasized)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "외우고 싶은 첫 단어를 추가해 보세요",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun EmptyResult(modifier: Modifier = Modifier) {
@@ -293,5 +349,13 @@ private fun EmptyResult(modifier: Modifier = Modifier) {
 private fun HomeScreenPreview() {
     WordletTheme(dynamicColor = false) {
         HomeScreen(words = sampleWords(), onAddClick = {}, onWordClick = {}, onStudyClick = {})
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun HomeScreenNoWordsPreview() {
+    WordletTheme(dynamicColor = false) {
+        HomeScreen(words = emptyList(), onAddClick = {}, onWordClick = {}, onStudyClick = {})
     }
 }
