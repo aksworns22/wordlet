@@ -115,7 +115,9 @@ private fun WordSheet(
 
     val termFocusRequester = remember { FocusRequester() }
     // 시트가 다 올라온 뒤에 키보드를 띄워, 키보드가 먼저 뜨고 시트가 뒤따라오지 않게 한다.
+    // 수정할 때는 내용을 먼저 보도록 키보드를 띄우지 않는다.
     LaunchedEffect(Unit) {
+        if (initial != null) return@LaunchedEffect
         snapshotFlow { sheetState.currentValue }.first { it == SheetValue.Expanded }
         termFocusRequester.requestFocus()
     }
