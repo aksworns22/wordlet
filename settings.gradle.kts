@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "wordlet"
 include(":app")
+include(":fsrs")
