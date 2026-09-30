@@ -62,11 +62,6 @@ import androidx.compose.ui.unit.dp
 import io.github.aksworns22.R
 import io.github.aksworns22.ui.theme.WordletTheme
 
-private data class WordEntry(
-    val word: Word,
-    val status: ReviewStatus
-)
-
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HomeScreen(
@@ -77,15 +72,13 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    val entries = remember(words) { words.map { WordEntry(it, it.reviewStatus()) } }
-    val hasWordsToStudy = entries.any { it.status !is ReviewStatus.Scheduled }
-    val visibleEntries =
-        remember(entries, query) {
+    val visibleWords =
+        remember(words, query) {
             val keyword = query.trim()
-            entries.filter {
+            words.filter {
                 keyword.isEmpty() ||
-                    it.word.term.contains(keyword, ignoreCase = true) ||
-                    it.word.meaning.contains(keyword)
+                    it.term.contains(keyword, ignoreCase = true) ||
+                    it.meaning.contains(keyword)
             }
         }
 
@@ -98,9 +91,9 @@ fun HomeScreen(
                 onAddClick = onAddClick
             )
         },
-        bottomBar = { StudyBar(hasWordsToStudy = hasWordsToStudy, onClick = onStudyClick) }
+        bottomBar = { StudyBar(onClick = onStudyClick) }
     ) { innerPadding ->
-        if (visibleEntries.isEmpty()) {
+        if (visibleWords.isEmpty()) {
             EmptyResult(Modifier.padding(innerPadding))
             return@Scaffold
         }
@@ -114,12 +107,12 @@ fun HomeScreen(
                     bottom = innerPadding.calculateBottomPadding() + 16.dp
                 )
         ) {
-            itemsIndexed(visibleEntries, key = { _, entry -> entry.word.card.id }) { index, entry ->
+            itemsIndexed(visibleWords, key = { _, word -> word.card.id }) { index, word ->
                 WordItem(
-                    entry = entry,
+                    word = word,
                     index = index,
-                    count = visibleEntries.size,
-                    onClick = { onWordClick(entry.word) },
+                    count = visibleWords.size,
+                    onClick = { onWordClick(word) },
                     modifier =
                         Modifier
                             .animateItem()
@@ -215,7 +208,7 @@ private fun AddButton(onClick: () -> Unit) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun WordItem(
-    entry: WordEntry,
+    word: Word,
     index: Int,
     count: Int,
     onClick: () -> Unit,
@@ -227,11 +220,11 @@ private fun WordItem(
         modifier = modifier,
         colors = ListItemDefaults.segmentedColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         supportingContent = {
-            Text(entry.word.meaning, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(word.meaning, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     ) {
         Text(
-            text = entry.word.term,
+            text = word.term,
             style = MaterialTheme.typography.titleLargeEmphasized,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -241,10 +234,7 @@ private fun WordItem(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StudyBar(
-    hasWordsToStudy: Boolean,
-    onClick: () -> Unit
-) {
+private fun StudyBar(onClick: () -> Unit) {
     val background = MaterialTheme.colorScheme.surface
     val height = ButtonDefaults.MediumContainerHeight
     Box(
@@ -257,7 +247,6 @@ private fun StudyBar(
     ) {
         Button(
             onClick = onClick,
-            enabled = hasWordsToStudy,
             shapes = ButtonDefaults.shapesFor(height),
             contentPadding = ButtonDefaults.contentPaddingFor(height),
             modifier =
@@ -266,7 +255,7 @@ private fun StudyBar(
                     .heightIn(min = height)
         ) {
             Text(
-                text = if (hasWordsToStudy) "학습하기" else "오늘 학습 완료",
+                text = "학습하기",
                 style = ButtonDefaults.textStyleFor(height)
             )
         }
