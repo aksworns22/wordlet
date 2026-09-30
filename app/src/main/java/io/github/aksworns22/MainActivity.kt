@@ -53,6 +53,10 @@ class MainActivity : ComponentActivity() {
                             words[index] = it
                             editingIndex = null
                         },
+                        onDelete = {
+                            words.removeAt(index)
+                            editingIndex = null
+                        },
                         onDismiss = { editingIndex = null }
                     )
                 }

@@ -1,6 +1,7 @@
 package io.github.aksworns22.word
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -21,8 +23,10 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
@@ -39,11 +43,13 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import io.github.aksworns22.R
 import io.github.aksworns22.home.Word
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -58,21 +64,24 @@ fun AddWordSheet(
         initial = null,
         submitLabel = "추가하기",
         onSubmit = onAdd,
+        onDelete = null,
         onDismiss = onDismiss
     )
 }
 
-/** 추가 시트와 같은 모양으로 [word]를 고치는 시트. 학습 기록은 그대로 둔다. */
+/** 추가 시트와 같은 모양으로 [word]를 고치거나 지우는 시트. 학습 기록은 그대로 둔다. */
 @Composable
 fun EditWordSheet(
     word: Word,
     onSave: (Word) -> Unit,
+    onDelete: () -> Unit,
     onDismiss: () -> Unit
 ) {
     WordSheet(
         initial = word,
         submitLabel = "저장하기",
         onSubmit = onSave,
+        onDelete = onDelete,
         onDismiss = onDismiss
     )
 }
@@ -83,6 +92,7 @@ private fun WordSheet(
     initial: Word?,
     submitLabel: String,
     onSubmit: (Word) -> Unit,
+    onDelete: (() -> Unit)?,
     onDismiss: () -> Unit
 ) {
     val term = rememberTextFieldState(initial?.term.orEmpty())
@@ -101,6 +111,7 @@ private fun WordSheet(
             )
         scope.launch { sheetState.hide() }.invokeOnCompletion { onSubmit(word) }
     }
+    val delete = { scope.launch { sheetState.hide() }.invokeOnCompletion { onDelete?.invoke() } }
 
     val termFocusRequester = remember { FocusRequester() }
     // 시트가 다 올라온 뒤에 키보드를 띄워, 키보드가 먼저 뜨고 시트가 뒤따라오지 않게 한다.
@@ -154,23 +165,87 @@ private fun WordSheet(
                     )
             )
             Spacer(Modifier.height(16.dp))
-            val height = 56.dp
-            Button(
-                onClick = { submit() },
-                enabled = canSubmit,
-                shapes = ButtonDefaults.shapesFor(height),
-                contentPadding = ButtonDefaults.contentPaddingFor(height),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = height)
-            ) {
-                Text(
-                    text = submitLabel,
-                    style = MaterialTheme.typography.titleMediumEmphasized
-                )
-            }
+            SheetButtons(
+                submitLabel = submitLabel,
+                canSubmit = canSubmit,
+                onSubmit = { submit() },
+                onDelete = if (onDelete != null) ({ delete() }) else null
+            )
         }
+    }
+}
+
+/**
+ * 시트 아래의 버튼 묶음. 누른 버튼은 넓어지고 옆 버튼은 좁아지며 모양이 바뀐다.
+ * 삭제는 되돌릴 수 없어 error 색으로 저장과 구분한다.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SheetButtons(
+    submitLabel: String,
+    canSubmit: Boolean,
+    onSubmit: () -> Unit,
+    onDelete: (() -> Unit)?
+) {
+    val height = ButtonDefaults.MediumContainerHeight
+    val deleteInteraction = remember { MutableInteractionSource() }
+    val submitInteraction = remember { MutableInteractionSource() }
+    val errorContainer = MaterialTheme.colorScheme.errorContainer
+    val onErrorContainer = MaterialTheme.colorScheme.onErrorContainer
+    ButtonGroup(
+        overflowIndicator = {},
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        if (onDelete != null) {
+            customItem(
+                buttonGroupContent = {
+                    Button(
+                        onClick = onDelete,
+                        shapes = ButtonDefaults.shapesFor(height),
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = errorContainer,
+                                contentColor = onErrorContainer
+                            ),
+                        contentPadding = ButtonDefaults.contentPaddingFor(height),
+                        interactionSource = deleteInteraction,
+                        modifier =
+                            Modifier
+                                .heightIn(min = height)
+                                .animateWidth(deleteInteraction)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_delete),
+                            contentDescription = "삭제",
+                            modifier = Modifier.size(ButtonDefaults.iconSizeFor(height))
+                        )
+                    }
+                },
+                menuContent = {}
+            )
+        }
+        customItem(
+            buttonGroupContent = {
+                Button(
+                    onClick = onSubmit,
+                    enabled = canSubmit,
+                    shapes = ButtonDefaults.shapesFor(height),
+                    contentPadding = ButtonDefaults.contentPaddingFor(height),
+                    interactionSource = submitInteraction,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .heightIn(min = height)
+                            .animateWidth(submitInteraction)
+                ) {
+                    Text(
+                        text = submitLabel,
+                        style = MaterialTheme.typography.titleMediumEmphasized
+                    )
+                }
+            },
+            menuContent = {}
+        )
     }
 }
 
