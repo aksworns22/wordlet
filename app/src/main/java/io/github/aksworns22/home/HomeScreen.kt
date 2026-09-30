@@ -13,6 +13,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -90,6 +92,10 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     var query by rememberSaveable { mutableStateOf("") }
+    val searchInteractionSource = remember { MutableInteractionSource() }
+    val searchFocused by searchInteractionSource.collectIsFocusedAsState()
+    // 키보드의 검색 키로 포커스가 빠져도 검색어가 남아 있으면 검색 중이다.
+    val searching = searchFocused || query.isNotEmpty()
     val visibleWords =
         remember(words, query) {
             val keyword = query.trim()
@@ -106,11 +112,22 @@ fun HomeScreen(
             HomeTopBar(
                 query = query,
                 onQueryChange = { query = it },
+                searching = searching,
+                interactionSource = searchInteractionSource,
                 onAddClick = onAddClick,
                 nudgeAddButton = words.isEmpty()
             )
         },
-        bottomBar = { if (words.isNotEmpty()) StudyBar(onClick = onStudyClick) }
+        bottomBar = {
+            // 검색에 집중하도록 학습하기 버튼은 아래로 내려 숨긴다.
+            AnimatedVisibility(
+                visible = words.isNotEmpty() && !searching,
+                enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeIn(),
+                exit = slideOutVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeOut()
+            ) {
+                StudyBar(onClick = onStudyClick)
+            }
+        }
     ) { innerPadding ->
         if (words.isEmpty()) {
             NoWords(Modifier.padding(innerPadding))
@@ -158,26 +175,26 @@ fun HomeScreen(
 private fun HomeTopBar(
     query: String,
     onQueryChange: (String) -> Unit,
+    searching: Boolean,
+    interactionSource: MutableInteractionSource,
     onAddClick: () -> Unit,
     nudgeAddButton: Boolean
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val focused by interactionSource.collectIsFocusedAsState()
     val focusManager = LocalFocusManager.current
     val closeSearch = {
         onQueryChange("")
         focusManager.clearFocus()
     }
-    BackHandler(enabled = focused, onBack = closeSearch)
+    BackHandler(enabled = searching, onBack = closeSearch)
 
     // 검색 중에는 알약 모양이 덜 둥근 사각형으로 스프링 morph되며 색이 짙어진다.
     val cornerRadius by animateDpAsState(
-        targetValue = if (focused) 16.dp else 28.dp,
+        targetValue = if (searching) 16.dp else 28.dp,
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()
     )
     val containerColor by animateColorAsState(
         targetValue =
-            if (focused) {
+            if (searching) {
                 MaterialTheme.colorScheme.secondaryContainer
             } else {
                 MaterialTheme.colorScheme.surfaceContainerHigh
@@ -210,7 +227,7 @@ private fun HomeTopBar(
                 leadingIcon = {
                     val iconSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
                     AnimatedContent(
-                        targetState = focused,
+                        targetState = searching,
                         transitionSpec = {
                             (scaleIn(iconSpec) + fadeIn()).togetherWith(scaleOut(iconSpec) + fadeOut())
                         }
@@ -239,7 +256,7 @@ private fun HomeTopBar(
         }
         // 검색에 집중하도록 추가 버튼은 자리를 비켜주고, 검색창이 그 폭까지 넓어진다.
         AnimatedVisibility(
-            visible = !focused,
+            visible = !searching,
             enter =
                 expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
                     scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec()) +
