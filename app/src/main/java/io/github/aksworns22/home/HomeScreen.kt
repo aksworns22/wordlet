@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -265,18 +266,23 @@ private fun WordItem(
 @Composable
 private fun StudyBar(onClick: () -> Unit) {
     val background = MaterialTheme.colorScheme.surface
-    val height = ButtonDefaults.LargeContainerHeight
+    val height = 64.dp
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .background(Brush.verticalGradient(0f to background.copy(alpha = 0f), 0.35f to background))
                 .navigationBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
     ) {
         Button(
             onClick = onClick,
             shapes = ButtonDefaults.shapesFor(height),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
+                ),
             contentPadding = ButtonDefaults.contentPaddingFor(height),
             modifier =
                 Modifier
@@ -285,7 +291,8 @@ private fun StudyBar(onClick: () -> Unit) {
         ) {
             Text(
                 text = "학습하기",
-                style = MaterialTheme.typography.headlineSmallEmphasized
+                style = MaterialTheme.typography.headlineSmallEmphasized,
+                fontWeight = FontWeight.Bold
             )
         }
     }
