@@ -1,15 +1,23 @@
 package io.github.aksworns22.home
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,7 +35,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -140,6 +149,30 @@ private fun HomeTopBar(
     onAddClick: () -> Unit,
     nudgeAddButton: Boolean
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    val focusManager = LocalFocusManager.current
+    val closeSearch = {
+        onQueryChange("")
+        focusManager.clearFocus()
+    }
+    BackHandler(enabled = focused, onBack = closeSearch)
+
+    // 검색 중에는 알약 모양이 덜 둥근 사각형으로 스프링 morph되며 색이 짙어진다.
+    val cornerRadius by animateDpAsState(
+        targetValue = if (focused) 16.dp else 28.dp,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()
+    )
+    val containerColor by animateColorAsState(
+        targetValue =
+            if (focused) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
+    )
+
     Row(
         modifier =
             Modifier
@@ -147,22 +180,38 @@ private fun HomeTopBar(
                 .background(MaterialTheme.colorScheme.surface)
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
             modifier = Modifier.weight(1f),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
+            shape = RoundedCornerShape(cornerRadius),
+            color = containerColor
         ) {
             SearchBarDefaults.InputField(
                 query = query,
                 onQueryChange = onQueryChange,
-                onSearch = {},
+                onSearch = { focusManager.clearFocus() },
                 expanded = false,
                 onExpandedChange = {},
+                interactionSource = interactionSource,
                 placeholder = { Text("단어나 뜻 검색") },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_search), contentDescription = null) },
+                leadingIcon = {
+                    val iconSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+                    AnimatedContent(
+                        targetState = focused,
+                        transitionSpec = {
+                            (scaleIn(iconSpec) + fadeIn()).togetherWith(scaleOut(iconSpec) + fadeOut())
+                        }
+                    ) { active ->
+                        if (active) {
+                            IconButton(onClick = closeSearch) {
+                                Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "검색 닫기")
+                            }
+                        } else {
+                            Icon(painterResource(R.drawable.ic_search), contentDescription = null)
+                        }
+                    }
+                },
                 trailingIcon = {
                     AnimatedVisibility(
                         visible = query.isNotEmpty(),
@@ -176,7 +225,24 @@ private fun HomeTopBar(
                 }
             )
         }
-        AddButton(onClick = onAddClick, nudge = nudgeAddButton)
+        // 검색에 집중하도록 추가 버튼은 자리를 비켜주고, 검색창이 그 폭까지 넓어진다.
+        AnimatedVisibility(
+            visible = !focused,
+            enter =
+                expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    fadeIn(),
+            exit =
+                shrinkHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    scaleOut(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    fadeOut()
+        ) {
+            AddButton(
+                onClick = onAddClick,
+                nudge = nudgeAddButton,
+                modifier = Modifier.padding(start = 12.dp)
+            )
+        }
     }
 }
 
@@ -188,7 +254,8 @@ private fun HomeTopBar(
 @Composable
 private fun AddButton(
     onClick: () -> Unit,
-    nudge: Boolean
+    nudge: Boolean,
+    modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -213,7 +280,7 @@ private fun AddButton(
     val shape = MaterialShapes.Cookie9Sided.toShape()
     Box(
         modifier =
-            Modifier
+            modifier
                 .size(56.dp)
                 .graphicsLayer { rotationZ = rotation }
                 .clip(shape)
