@@ -1,4 +1,4 @@
-package io.github.aksworns22.add
+package io.github.aksworns22.word
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -49,22 +49,57 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** 홈 위로 올라오는 단어 추가 시트. 단어와 뜻만 적으면 바로 추가할 수 있다. */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AddWordSheet(
     onAdd: (Word) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val term = rememberTextFieldState()
-    val meaning = rememberTextFieldState()
-    val example = rememberTextFieldState()
-    val canAdd = term.text.isNotBlank() && meaning.text.isNotBlank()
+    WordSheet(
+        initial = null,
+        submitLabel = "추가하기",
+        onSubmit = onAdd,
+        onDismiss = onDismiss
+    )
+}
+
+/** 추가 시트와 같은 모양으로 [word]를 고치는 시트. 학습 기록은 그대로 둔다. */
+@Composable
+fun EditWordSheet(
+    word: Word,
+    onSave: (Word) -> Unit,
+    onDismiss: () -> Unit
+) {
+    WordSheet(
+        initial = word,
+        submitLabel = "저장하기",
+        onSubmit = onSave,
+        onDismiss = onDismiss
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun WordSheet(
+    initial: Word?,
+    submitLabel: String,
+    onSubmit: (Word) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val term = rememberTextFieldState(initial?.term.orEmpty())
+    val meaning = rememberTextFieldState(initial?.meaning.orEmpty())
+    val example = rememberTextFieldState(initial?.example.orEmpty())
+    val canSubmit = term.text.isNotBlank() && meaning.text.isNotBlank()
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val add = {
-        val word = Word(term.text.trim().toString(), meaning.text.trim().toString(), example.text.trim().toString())
-        scope.launch { sheetState.hide() }.invokeOnCompletion { onAdd(word) }
+    val submit = {
+        val word =
+            (initial ?: Word("", "")).copy(
+                term = term.text.trim().toString(),
+                meaning = meaning.text.trim().toString(),
+                example = example.text.trim().toString()
+            )
+        scope.launch { sheetState.hide() }.invokeOnCompletion { onSubmit(word) }
     }
 
     val termFocusRequester = remember { FocusRequester() }
@@ -121,8 +156,8 @@ fun AddWordSheet(
             Spacer(Modifier.height(16.dp))
             val height = 56.dp
             Button(
-                onClick = { add() },
-                enabled = canAdd,
+                onClick = { submit() },
+                enabled = canSubmit,
                 shapes = ButtonDefaults.shapesFor(height),
                 contentPadding = ButtonDefaults.contentPaddingFor(height),
                 modifier =
@@ -131,7 +166,7 @@ fun AddWordSheet(
                         .heightIn(min = height)
             ) {
                 Text(
-                    text = "추가하기",
+                    text = submitLabel,
                     style = MaterialTheme.typography.titleMediumEmphasized
                 )
             }

@@ -12,10 +12,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.AndroidComposeUiFlags
 import androidx.compose.ui.ExperimentalComposeUiApi
-import io.github.aksworns22.add.AddWordSheet
 import io.github.aksworns22.home.HomeScreen
 import io.github.aksworns22.home.sampleWords
 import io.github.aksworns22.ui.theme.WordletTheme
+import io.github.aksworns22.word.AddWordSheet
+import io.github.aksworns22.word.EditWordSheet
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalComposeUiApi::class)
@@ -29,10 +30,11 @@ class MainActivity : ComponentActivity() {
             WordletTheme {
                 val words = remember { mutableStateListOf(*sampleWords().toTypedArray()) }
                 var adding by rememberSaveable { mutableStateOf(false) }
+                var editingIndex by rememberSaveable { mutableStateOf<Int?>(null) }
                 HomeScreen(
                     words = words,
                     onAddClick = { adding = true },
-                    onWordClick = {},
+                    onWordClick = { editingIndex = words.indexOf(it) },
                     onStudyClick = {}
                 )
                 if (adding) {
@@ -42,6 +44,16 @@ class MainActivity : ComponentActivity() {
                             adding = false
                         },
                         onDismiss = { adding = false }
+                    )
+                }
+                editingIndex?.let { index ->
+                    EditWordSheet(
+                        word = words[index],
+                        onSave = {
+                            words[index] = it
+                            editingIndex = null
+                        },
+                        onDismiss = { editingIndex = null }
                     )
                 }
             }
