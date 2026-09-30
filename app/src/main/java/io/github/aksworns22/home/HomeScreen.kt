@@ -236,7 +236,7 @@ private fun WordItem(
 @Composable
 private fun StudyBar(onClick: () -> Unit) {
     val background = MaterialTheme.colorScheme.surface
-    val height = ButtonDefaults.MediumContainerHeight
+    val height = ButtonDefaults.LargeContainerHeight
     Box(
         modifier =
             Modifier
@@ -256,7 +256,7 @@ private fun StudyBar(onClick: () -> Unit) {
         ) {
             Text(
                 text = "학습하기",
-                style = ButtonDefaults.textStyleFor(height)
+                style = MaterialTheme.typography.headlineSmallEmphasized
             )
         }
     }
