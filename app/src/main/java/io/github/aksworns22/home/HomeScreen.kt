@@ -71,14 +71,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.aksworns22.R
+import io.github.aksworns22.ui.highlight
 import io.github.aksworns22.ui.theme.WordletTheme
 import kotlinx.coroutines.delay
 
@@ -367,21 +366,6 @@ private fun WordItem(
         )
     }
 }
-
-/** [keyword]와 일치하는 모든 부분에 [style]을 입힌다. */
-private fun String.highlight(
-    keyword: String,
-    style: SpanStyle
-): AnnotatedString =
-    buildAnnotatedString {
-        append(this@highlight)
-        if (keyword.isEmpty()) return@buildAnnotatedString
-        var start = this@highlight.indexOf(keyword, ignoreCase = true)
-        while (start >= 0) {
-            addStyle(style, start, start + keyword.length)
-            start = this@highlight.indexOf(keyword, start + keyword.length, ignoreCase = true)
-        }
-    }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
