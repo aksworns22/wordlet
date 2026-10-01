@@ -175,7 +175,8 @@ private fun StudiedWordItem(
             MasteryBadge(
                 mastery = item.word.card.mastery(),
                 studiedFrom = item.from.takeIf { animate },
-                fillDelayMillis = enterDelayMillis + FILL_DELAY_MILLIS
+                fillDelayMillis = enterDelayMillis + FILL_DELAY_MILLIS,
+                wavy = true
             )
         },
         supportingContent = {

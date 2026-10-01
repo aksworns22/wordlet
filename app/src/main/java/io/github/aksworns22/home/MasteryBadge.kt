@@ -50,8 +50,9 @@ private val Mastery.fill get() = ordinal.toFloat() / Mastery.Mastered.ordinal
 
 /**
  * 단어의 [Mastery]를 단계 이름과 차오르는 링으로 보여준다.
- * [studiedFrom]이 있으면 [fillDelayMillis] 뒤에 그 단계에서 [mastery]까지 링이 차오르고,
- * 단계가 그대로여도 통통 튀어 방금 학습했음을 알린다.
+ * [studiedFrom]이 있으면 [fillDelayMillis] 뒤에 그 단계에서 [mastery]까지 링이 물결치며 차오르고 통통 튄다.
+ * 단계가 그대로면 빈 링에서 지금 단계까지 차올라, 학습한 단어는 언제나 차오르는 모습을 보여준다.
+ * [wavy]면 링이 멈춰 있어도 계속 물결친다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -59,25 +60,24 @@ fun MasteryBadge(
     mastery: Mastery,
     modifier: Modifier = Modifier,
     studiedFrom: Mastery? = null,
-    fillDelayMillis: Long = 0L
+    fillDelayMillis: Long = 0L,
+    wavy: Boolean = false
 ) {
     var shown by remember { mutableStateOf(studiedFrom ?: mastery) }
-    val fill = remember { Animatable(shown.fill) }
+    val fill = remember { Animatable(if (studiedFrom == mastery) 0f else shown.fill) }
     val pop = remember { Animatable(1f) }
     val fillSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
     val popSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
 
     LaunchedEffect(mastery, studiedFrom) {
-        if (studiedFrom == null && shown == mastery) return@LaunchedEffect
+        if (studiedFrom == null && shown == mastery && fill.value == mastery.fill) return@LaunchedEffect
         if (studiedFrom != null) delay(fillDelayMillis)
         launch {
             pop.animateTo(1.3f, popSpec)
             pop.animateTo(1f, fillSpec)
         }
-        if (shown != mastery) {
-            fill.animateTo(mastery.fill, fillSpec)
-            shown = mastery
-        }
+        fill.animateTo(mastery.fill, fillSpec)
+        shown = mastery
     }
 
     val colors = MaterialTheme.colorScheme
@@ -110,7 +110,7 @@ fun MasteryBadge(
         ) {
             // 링이 다 차면 꽉 찬 도형으로 피어난다.
             AnimatedContent(
-                targetState = shown == Mastery.Mastered,
+                targetState = shown == Mastery.Mastered && !fill.isRunning && fill.value == 1f,
                 transitionSpec = { scaleIn(fillSpec).togetherWith(scaleOut() + fadeOut()) },
                 label = "masteryMark"
             ) { mastered ->
@@ -129,8 +129,8 @@ fun MasteryBadge(
                         trackColor = colors.surfaceContainerHighest,
                         stroke = stroke,
                         trackStroke = stroke,
-                        // 멈춰 있을 때 물결이 치면 로딩처럼 보이므로 차오르는 동안에만 물결친다.
-                        amplitude = { if (fill.isRunning) 1f else 0f },
+                        // 멈춰 있을 때 물결이 치면 로딩처럼 보이므로 [wavy]가 아니면 차오르는 동안에만 물결친다.
+                        amplitude = { if (wavy || fill.isRunning) 1f else 0f },
                         wavelength = 8.dp
                     )
                 }
