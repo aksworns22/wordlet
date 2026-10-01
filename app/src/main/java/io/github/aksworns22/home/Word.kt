@@ -6,5 +6,6 @@ data class Word(
     val term: String,
     val meaning: String,
     val example: String = "",
+    val deckId: Long = Deck.BASIC_ID,
     val card: Card = Card()
 )

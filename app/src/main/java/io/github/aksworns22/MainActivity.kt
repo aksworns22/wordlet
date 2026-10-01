@@ -5,18 +5,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.AndroidComposeUiFlags
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.aksworns22.home.Deck
 import io.github.aksworns22.home.HomeScreen
-import io.github.aksworns22.home.sampleWords
 import io.github.aksworns22.ui.theme.WordletTheme
 import io.github.aksworns22.word.AddWordSheet
 import io.github.aksworns22.word.EditWordSheet
+import io.github.aksworns22.word.WordViewModel
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalComposeUiApi::class)
@@ -28,36 +29,38 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             WordletTheme {
-                val words = remember { mutableStateListOf(*sampleWords().toTypedArray()) }
+                val viewModel: WordViewModel = viewModel(factory = WordViewModel.Factory)
+                // DB에서 처음 읽어오기 전에 빈 홈이 잠깐 보이지 않도록 그리지 않는다.
+                val words = viewModel.words.collectAsStateWithLifecycle().value ?: return@WordletTheme
                 var adding by rememberSaveable { mutableStateOf(false) }
-                var editingIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+                var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
                 HomeScreen(
                     words = words,
                     onAddClick = { adding = true },
-                    onWordClick = { editingIndex = words.indexOf(it) },
+                    onWordClick = { editingId = it.card.id },
                     onStudyClick = {}
                 )
                 if (adding) {
                     AddWordSheet(
                         onAdd = {
-                            words.add(0, it)
+                            viewModel.add(it, Deck.BASIC_ID)
                             adding = false
                         },
                         onDismiss = { adding = false }
                     )
                 }
-                editingIndex?.let { index ->
+                words.find { it.card.id == editingId }?.let { word ->
                     EditWordSheet(
-                        word = words[index],
+                        word = word,
                         onSave = {
-                            words[index] = it
-                            editingIndex = null
+                            viewModel.update(it)
+                            editingId = null
                         },
                         onDelete = {
-                            words.removeAt(index)
-                            editingIndex = null
+                            viewModel.delete(word)
+                            editingId = null
                         },
-                        onDismiss = { editingIndex = null }
+                        onDismiss = { editingId = null }
                     )
                 }
             }
