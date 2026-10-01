@@ -242,7 +242,7 @@ private fun WordCard(
 }
 
 /** 단어는 한 줄에 들어가는 가장 큰 크기로 보여준다. */
-private val TermMaxFontSize = 80.sp
+private val TermMaxFontSize = 45.sp
 private val TermMinFontSize = 28.sp
 
 /**
@@ -253,7 +253,7 @@ private val TermMinFontSize = 28.sp
 @Composable
 private fun Term(term: String) {
     var wrap by remember(term) { mutableStateOf(false) }
-    val style = MaterialTheme.typography.displayLargeEmphasized.copy(lineHeight = 1.15.em)
+    val style = MaterialTheme.typography.displayMediumEmphasized.copy(lineHeight = 1.15.em)
     if (wrap) {
         Text(
             text = term,
