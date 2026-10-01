@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -31,13 +32,16 @@ import io.github.aksworns22.deck.DeleteDeckDialog
 import io.github.aksworns22.deck.RenameDeckSheet
 import io.github.aksworns22.home.Deck
 import io.github.aksworns22.home.HomeScreen
-import io.github.aksworns22.home.Mastery
+import io.github.aksworns22.study.StudiedWord
+import io.github.aksworns22.study.StudyResultScreen
 import io.github.aksworns22.study.StudyScreen
 import io.github.aksworns22.study.StudyViewModel
 import io.github.aksworns22.ui.theme.WordletTheme
 import io.github.aksworns22.word.AddWordSheet
 import io.github.aksworns22.word.EditWordSheet
 import io.github.aksworns22.word.WordViewModel
+
+private enum class Screen { Home, Study, Result }
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalComposeUiApi::class)
@@ -62,46 +66,57 @@ class MainActivity : ComponentActivity() {
                 val ankiImport = rememberAnkiImportState()
                 var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
                 val studyViewModel: StudyViewModel = viewModel(factory = StudyViewModel.Factory)
-                var studying by rememberSaveable { mutableStateOf(false) }
-                var studied by remember { mutableStateOf(emptyMap<Long, Mastery>()) }
+                var screen by rememberSaveable { mutableStateOf(Screen.Home) }
+                var studied by remember { mutableStateOf(emptyList<StudiedWord>()) }
                 val studySpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+                val resultSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
                 AnimatedContent(
-                    targetState = studying,
+                    // 화면이 다시 만들어져 학습 결과를 잃으면 홈으로 돌아간다.
+                    targetState = if (screen == Screen.Result && studied.isEmpty()) Screen.Home else screen,
                     transitionSpec = {
-                        if (targetState) {
-                            (slideInVertically(studySpec) { it / 4 } + fadeIn()).togetherWith(fadeOut())
-                        } else {
-                            fadeIn().togetherWith(slideOutVertically(studySpec) { it / 4 } + fadeOut())
+                        when (targetState) {
+                            Screen.Study ->
+                                (slideInVertically(studySpec) { it / 4 } + fadeIn()).togetherWith(fadeOut())
+                            Screen.Result ->
+                                (scaleIn(resultSpec, initialScale = 0.9f) + fadeIn()).togetherWith(fadeOut())
+                            Screen.Home ->
+                                fadeIn().togetherWith(slideOutVertically(studySpec) { it / 4 } + fadeOut())
                         }
                     },
                     modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                ) { inStudy ->
-                    if (inStudy) {
-                        LaunchedEffect(deck.id) { studyViewModel.start(deck.id) }
-                        StudyScreen(
-                            deck = deck,
-                            state = studyViewModel.state.collectAsStateWithLifecycle().value,
-                            onReveal = studyViewModel::reveal,
-                            onRate = studyViewModel::rate,
-                            onBack = {
-                                studied = studyViewModel.stop()
-                                studying = false
-                            }
-                        )
-                    } else {
-                        HomeScreen(
-                            decks = decks,
-                            deck = deck,
-                            words = words,
-                            onDeckSelect = { deckId = it.id },
-                            onDeckAction = { deckAction = it },
-                            onImportClick = ankiImport::pickFile,
-                            onAddClick = { adding = true },
-                            onWordClick = { editingId = it.card.id },
-                            onStudyClick = { studying = true },
-                            studied = studied,
-                            onStudiedShown = { studied = emptyMap() }
-                        )
+                ) { target ->
+                    when (target) {
+                        Screen.Study -> {
+                            LaunchedEffect(deck.id) { studyViewModel.start(deck.id) }
+                            StudyScreen(
+                                deck = deck,
+                                state = studyViewModel.state.collectAsStateWithLifecycle().value,
+                                onReveal = studyViewModel::reveal,
+                                onRate = studyViewModel::rate,
+                                onBack = {
+                                    studied = studyViewModel.stop()
+                                    screen = if (studied.isEmpty()) Screen.Home else Screen.Result
+                                }
+                            )
+                        }
+                        Screen.Result ->
+                            StudyResultScreen(
+                                studied = studied,
+                                // 사라지는 동안에도 결과가 보이도록 결과는 지우지 않는다.
+                                onDone = { screen = Screen.Home }
+                            )
+                        Screen.Home ->
+                            HomeScreen(
+                                decks = decks,
+                                deck = deck,
+                                words = words,
+                                onDeckSelect = { deckId = it.id },
+                                onDeckAction = { deckAction = it },
+                                onImportClick = ankiImport::pickFile,
+                                onAddClick = { adding = true },
+                                onWordClick = { editingId = it.card.id },
+                                onStudyClick = { screen = Screen.Study }
+                            )
                     }
                 }
                 if (adding) {

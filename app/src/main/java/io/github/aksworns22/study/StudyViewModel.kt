@@ -37,6 +37,12 @@ data class StudyState(
     val revealed: Boolean get() = previews.isNotEmpty()
 }
 
+/** 이번 학습에서 평가한 단어와, 처음 평가하기 전의 [Mastery] */
+data class StudiedWord(
+    val word: Word,
+    val from: Mastery
+)
+
 /** 학습은 끝이 없고, 사용자가 뒤로 나가면 [stop]으로 끝난다. */
 class StudyViewModel(
     private val dao: WordDao,
@@ -95,13 +101,16 @@ class StudyViewModel(
         _state.value = nextWord(words, clock(), previousId = card.id)?.let(::StudyState)
     }
 
-    /** 학습을 끝내고, 이번에 평가한 단어들이 학습 전에 어느 [Mastery]였는지 돌려준다. */
-    fun stop(): Map<Long, Mastery> {
+    /** 학습을 끝내고, 이번에 평가한 단어들을 처음 평가한 순서대로 돌려준다. */
+    fun stop(): List<StudiedWord> {
         loading?.cancel()
+        val byId = words.associateBy { it.card.id }
+        val studied = studiedFrom.mapNotNull { (id, from) -> byId[id]?.let { StudiedWord(it, from) } }
         deckId = null
         words = emptyList()
+        studiedFrom.clear()
         _state.value = null
-        return studiedFrom.toMap().also { studiedFrom.clear() }
+        return studied
     }
 
     companion object {

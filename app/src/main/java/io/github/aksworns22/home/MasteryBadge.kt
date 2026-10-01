@@ -48,12 +48,9 @@ private val Mastery.label
 /** 링이 얼마나 찼는지. 다 차면 링 대신 꽉 찬 도형을 보여준다. */
 private val Mastery.fill get() = ordinal.toFloat() / Mastery.Mastered.ordinal
 
-/** 화면에 들어온 뒤 링이 차오르기 시작할 때까지 기다리는 시간 */
-private const val FILL_DELAY_MILLIS = 350L
-
 /**
  * 단어의 [Mastery]를 단계 이름과 차오르는 링으로 보여준다.
- * [studiedFrom]이 있으면 그 단계에서 [mastery]까지 링이 차오르고,
+ * [studiedFrom]이 있으면 [fillDelayMillis] 뒤에 그 단계에서 [mastery]까지 링이 차오르고,
  * 단계가 그대로여도 통통 튀어 방금 학습했음을 알린다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -61,7 +58,8 @@ private const val FILL_DELAY_MILLIS = 350L
 fun MasteryBadge(
     mastery: Mastery,
     modifier: Modifier = Modifier,
-    studiedFrom: Mastery? = null
+    studiedFrom: Mastery? = null,
+    fillDelayMillis: Long = 0L
 ) {
     var shown by remember { mutableStateOf(studiedFrom ?: mastery) }
     val fill = remember { Animatable(shown.fill) }
@@ -71,7 +69,7 @@ fun MasteryBadge(
 
     LaunchedEffect(mastery, studiedFrom) {
         if (studiedFrom == null && shown == mastery) return@LaunchedEffect
-        if (studiedFrom != null) delay(FILL_DELAY_MILLIS)
+        if (studiedFrom != null) delay(fillDelayMillis)
         launch {
             pop.animateTo(1.3f, popSpec)
             pop.animateTo(1f, fillSpec)
