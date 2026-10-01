@@ -49,6 +49,35 @@ class StudyQueueTest {
         assertEquals(2L, nextWord(words, now)?.card?.id)
     }
 
+    private fun learning(
+        id: Long,
+        dueIn: Duration
+    ) = Word(
+        "learning$id",
+        "",
+        card =
+            Card(
+                id = id,
+                state = State.Learning,
+                stability = 0.5,
+                difficulty = 5.0,
+                due = now.plus(dueIn),
+                lastReview = now.minusSeconds(30)
+            )
+    )
+
+    @Test
+    fun newWordsComeWhileLearningWordsAreBelowLimit() {
+        val words = (1L until LEARNING_LIMIT).map { learning(it, Duration.ofMinutes(it)) } + new(100)
+        assertEquals(100L, nextWord(words, now)?.card?.id)
+    }
+
+    @Test
+    fun learningWordsComeAheadOfNewWordsWhenLimitIsReached() {
+        val words = (1L..LEARNING_LIMIT).map { learning(it, Duration.ofMinutes(it)) } + new(100)
+        assertEquals(1L, nextWord(words, now)?.card?.id)
+    }
+
     @Test
     fun skipsPreviousWordWhenOthersExist() {
         val words = listOf(seen(1, Duration.ofMinutes(-1)), seen(2, Duration.ofDays(3)))
