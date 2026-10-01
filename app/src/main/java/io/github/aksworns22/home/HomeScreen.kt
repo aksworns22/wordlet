@@ -5,10 +5,13 @@ import androidx.annotation.DrawableRes
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
@@ -69,21 +72,28 @@ import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.ripple
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -92,6 +102,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -101,6 +112,8 @@ import io.github.aksworns22.deck.DeckAction
 import io.github.aksworns22.ui.highlight
 import io.github.aksworns22.ui.theme.WordletTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -132,9 +145,31 @@ fun HomeScreen(
                     it.meaning.contains(keyword)
             }
         }
+    val listState = rememberLazyListState()
+    // 아래로 스크롤하면 단어장 탭이 손가락을 따라 접히고, 리스트 맨 위로 돌아와야 다시 펼쳐진다.
+    val tabsScroll =
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
+            canScroll = { listState.canScrollForward || listState.canScrollBackward }
+        )
+    // 리스트가 사라지면 탭을 다시 꺼낼 방법이 없으니 펼쳐 둔다.
+    LaunchedEffect(visibleWords.isEmpty()) {
+        if (visibleWords.isEmpty()) tabsScroll.state.heightOffset = 0f
+    }
+    // 탭이 접혀 사라지면 학습하기 옆에 맨 위로 돌아가 탭을 다시 꺼내는 버튼이 나온다.
+    val tabsCollapsed by remember { derivedStateOf { tabsScroll.state.collapsedFraction > 0.5f } }
+    val scope = rememberCoroutineScope()
+    val scrollToTop: () -> Unit = {
+        scope.launch { listState.animateScrollToItem(0) }
+        // 코드로 하는 스크롤은 탭에 전달되지 않으니 탭도 함께 펼친다.
+        scope.launch {
+            animate(tabsScroll.state.heightOffset, 0f) { value, _ ->
+                tabsScroll.state.heightOffset = value
+            }
+        }
+    }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(tabsScroll.nestedScrollConnection),
         topBar = {
             HomeTopBar(
                 decks = decks,
@@ -147,17 +182,23 @@ fun HomeScreen(
                 searching = searching,
                 interactionSource = searchInteractionSource,
                 onAddClick = onAddClick,
-                nudgeAddButton = words.isEmpty()
+                nudgeAddButton = words.isEmpty(),
+                tabsState = tabsScroll.state
             )
         },
         bottomBar = {
-            // 검색에 집중하도록 학습하기 버튼은 아래로 내려 숨긴다.
+            // 검색에 집중하도록 학습하기 버튼은 숨기고, 맨 위로 버튼만 키보드 위에 남긴다.
             AnimatedVisibility(
-                visible = words.isNotEmpty() && !searching,
+                visible = words.isNotEmpty() && (!searching || tabsCollapsed),
                 enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeIn(),
                 exit = slideOutVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeOut()
             ) {
-                StudyBar(onClick = onStudyClick)
+                StudyBar(
+                    showStudy = !searching,
+                    showScrollToTop = tabsCollapsed,
+                    onStudyClick = onStudyClick,
+                    onScrollToTopClick = scrollToTop
+                )
             }
         }
     ) { innerPadding ->
@@ -175,7 +216,6 @@ fun HomeScreen(
             )
             return@Scaffold
         }
-        val listState = rememberLazyListState()
         // 학습에서 돌아오면 방금 학습한 단어가 보이도록 옮기고, 보여준 뒤에는 표시를 지운다.
         LaunchedEffect(studied) {
             if (studied.isEmpty()) return@LaunchedEffect
@@ -227,7 +267,8 @@ private fun HomeTopBar(
     searching: Boolean,
     interactionSource: MutableInteractionSource,
     onAddClick: () -> Unit,
-    nudgeAddButton: Boolean
+    nudgeAddButton: Boolean,
+    tabsState: TopAppBarState
 ) {
     val focusManager = LocalFocusManager.current
     val closeSearch = {
@@ -331,7 +372,17 @@ private fun HomeTopBar(
             selected = deck,
             onSelect = onDeckSelect,
             onAction = onDeckAction,
-            modifier = Modifier.padding(top = 12.dp)
+            modifier =
+                Modifier
+                    .clipToBounds()
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        tabsState.heightOffsetLimit = -placeable.height.toFloat()
+                        val height = (placeable.height + tabsState.heightOffset).roundToInt().coerceAtLeast(0)
+                        // 접히는 만큼 위로 밀려 올라가 검색창 뒤로 들어가는 것처럼 보인다.
+                        layout(placeable.width, height) { placeable.placeRelative(0, height - placeable.height) }
+                    }.graphicsLayer { alpha = 1f - tabsState.collapsedFraction }
+                    .padding(top = 12.dp)
         )
     }
 }
@@ -706,37 +757,117 @@ private fun WordItem(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StudyBar(onClick: () -> Unit) {
+private fun StudyBar(
+    showStudy: Boolean,
+    showScrollToTop: Boolean,
+    onStudyClick: () -> Unit,
+    onScrollToTopClick: () -> Unit
+) {
     val background = MaterialTheme.colorScheme.surface
     val height = 64.dp
-    Box(
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .background(Brush.verticalGradient(0f to background.copy(alpha = 0f), 0.35f to background))
                 .navigationBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
+                .imePadding()
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Button(
-            onClick = onClick,
-            shapes = ButtonDefaults.shapesFor(height),
-            colors =
-                ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                    contentColor = MaterialTheme.colorScheme.onTertiary
-                ),
-            contentPadding = ButtonDefaults.contentPaddingFor(height),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = height)
+        // 맨 위로 버튼이 자라나는 만큼 학습하기 버튼이 줄어든다.
+        Box(Modifier.weight(1f)) {
+            // Row 안이라 RowScope 버전과 겹치지 않도록 이름을 모두 쓴다.
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showStudy,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Button(
+                    onClick = onStudyClick,
+                    shapes = ButtonDefaults.shapesFor(height),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary,
+                            contentColor = MaterialTheme.colorScheme.onTertiary
+                        ),
+                    contentPadding = ButtonDefaults.contentPaddingFor(height),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = height)
+                ) {
+                    Text(
+                        text = "학습하기",
+                        style = MaterialTheme.typography.headlineSmallEmphasized,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        AnimatedVisibility(
+            visible = showScrollToTop,
+            enter =
+                expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec()),
+            exit =
+                shrinkHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    scaleOut(MaterialTheme.motionScheme.defaultSpatialSpec())
         ) {
-            Text(
-                text = "학습하기",
-                style = MaterialTheme.typography.headlineSmallEmphasized,
-                fontWeight = FontWeight.Bold
+            // 화살표 도형이 반 바퀴 돌며 튀어나와 위를 가리킨다.
+            val spinSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+            val spin by transition.animateFloat(transitionSpec = { spinSpec }) {
+                if (it == EnterExitState.Visible) 0f else -180f
+            }
+            ScrollToTopButton(
+                onClick = onScrollToTopClick,
+                size = height,
+                modifier =
+                    Modifier
+                        .padding(start = 12.dp)
+                        .graphicsLayer { rotationZ = spin }
             )
         }
+    }
+}
+
+/** 위를 가리키는 화살표 도형의 맨 위로 버튼. 누르면 위로 쏘아 올리듯 납작해졌다 튄다. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ScrollToTopButton(
+    onClick: () -> Unit,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val squash by animateFloatAsState(
+        targetValue = if (pressed) 0.85f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
+    )
+    Box(
+        modifier =
+            modifier
+                .size(size)
+                .graphicsLayer {
+                    scaleY = squash
+                    scaleX = 2f - squash
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                }.clip(MaterialShapes.Arrow.toShape())
+                .background(MaterialTheme.colorScheme.primary)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = ripple(),
+                    role = Role.Button,
+                    onClick = onClick
+                ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_arrow_upward),
+            contentDescription = "맨 위로",
+            tint = MaterialTheme.colorScheme.onPrimary
+        )
     }
 }
 
