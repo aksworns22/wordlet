@@ -30,7 +30,6 @@ import io.github.aksworns22.anki.rememberAnkiImportState
 import io.github.aksworns22.deck.DeckAction
 import io.github.aksworns22.deck.DeleteDeckDialog
 import io.github.aksworns22.deck.RenameDeckSheet
-import io.github.aksworns22.home.Deck
 import io.github.aksworns22.home.HomeScreen
 import io.github.aksworns22.study.StudiedWord
 import io.github.aksworns22.study.StudyResultScreen
@@ -57,7 +56,7 @@ class MainActivity : ComponentActivity() {
                 // DB에서 처음 읽어오기 전에 빈 홈이 잠깐 보이지 않도록 그리지 않는다.
                 val allWords = viewModel.words.collectAsStateWithLifecycle().value ?: return@WordletTheme
                 val decks = viewModel.decks.collectAsStateWithLifecycle().value ?: return@WordletTheme
-                var deckId by rememberSaveable { mutableStateOf(Deck.BASIC_ID) }
+                val deckId by viewModel.deckId.collectAsStateWithLifecycle()
                 // 고른 단어장이 없으면 첫 단어장을 보여준다.
                 val deck = decks.find { it.id == deckId } ?: decks.first()
                 val words = remember(allWords, deck) { allWords.filter { it.deckId == deck.id } }
@@ -109,7 +108,7 @@ class MainActivity : ComponentActivity() {
                                 decks = decks,
                                 deck = deck,
                                 words = words,
-                                onDeckSelect = { deckId = it.id },
+                                onDeckSelect = { viewModel.selectDeck(it.id) },
                                 onDeckAction = { deckAction = it },
                                 onImportClick = ankiImport::pickFile,
                                 onAddClick = { adding = true },
@@ -128,7 +127,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 AnkiImportHost(ankiImport) { name, imported ->
-                    viewModel.importDeck(name, imported) { deckId = it }
+                    viewModel.importDeck(name, imported, viewModel::selectDeck)
                 }
                 val closeDeckAction = { deckAction = null }
                 when (deckAction) {

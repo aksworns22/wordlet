@@ -1,5 +1,8 @@
 package io.github.aksworns22.word
 
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
@@ -16,8 +19,10 @@ import io.github.aksworns22.data.toWord
 import io.github.aksworns22.fsrs.Card
 import io.github.aksworns22.home.Deck
 import io.github.aksworns22.home.Word
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -25,8 +30,14 @@ import java.time.Instant
 
 class WordViewModel(
     private val dao: WordDao,
-    private val deckDao: DeckDao
+    private val deckDao: DeckDao,
+    private val prefs: SharedPreferences
 ) : ViewModel() {
+    private val _deckId = MutableStateFlow(prefs.getLong(DECK_ID_KEY, Deck.BASIC_ID))
+
+    /** 마지막으로 고른 단어장의 id. 앱을 다시 켜도 유지된다. */
+    val deckId: StateFlow<Long> = _deckId.asStateFlow()
+
     /** DB에서 처음 읽어오기 전에는 null이다. "기본" 단어장이 있어 비어 있지 않다. */
     val decks: StateFlow<List<Deck>?> =
         deckDao
@@ -40,6 +51,11 @@ class WordViewModel(
             .observeAll()
             .map { entities -> entities.map { it.toWord() } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun selectDeck(id: Long) {
+        _deckId.value = id
+        prefs.edit { putLong(DECK_ID_KEY, id) }
+    }
 
     fun add(
         word: Word,
@@ -99,11 +115,14 @@ class WordViewModel(
     }
 
     companion object {
+        private const val DECK_ID_KEY = "deck_id"
+
         val Factory =
             viewModelFactory {
                 initializer {
-                    val db = WordDatabase.get(this[APPLICATION_KEY]!!)
-                    WordViewModel(db.wordDao(), db.deckDao())
+                    val app = this[APPLICATION_KEY]!!
+                    val db = WordDatabase.get(app)
+                    WordViewModel(db.wordDao(), db.deckDao(), app.getSharedPreferences("wordlet", Context.MODE_PRIVATE))
                 }
             }
     }
