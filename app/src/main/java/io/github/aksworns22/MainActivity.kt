@@ -4,6 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -11,6 +20,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.AndroidComposeUiFlags
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.aksworns22.deck.DeckAction
@@ -18,6 +29,8 @@ import io.github.aksworns22.deck.DeleteDeckDialog
 import io.github.aksworns22.deck.RenameDeckSheet
 import io.github.aksworns22.home.Deck
 import io.github.aksworns22.home.HomeScreen
+import io.github.aksworns22.study.StudyScreen
+import io.github.aksworns22.study.StudyViewModel
 import io.github.aksworns22.ui.theme.WordletTheme
 import io.github.aksworns22.word.AddWordSheet
 import io.github.aksworns22.word.EditWordSheet
@@ -44,16 +57,45 @@ class MainActivity : ComponentActivity() {
                 var deckAction by rememberSaveable { mutableStateOf<DeckAction?>(null) }
                 var adding by rememberSaveable { mutableStateOf(false) }
                 var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
-                HomeScreen(
-                    decks = decks,
-                    deck = deck,
-                    words = words,
-                    onDeckSelect = { deckId = it.id },
-                    onDeckAction = { deckAction = it },
-                    onAddClick = { adding = true },
-                    onWordClick = { editingId = it.card.id },
-                    onStudyClick = {}
-                )
+                val studyViewModel: StudyViewModel = viewModel(factory = StudyViewModel.Factory)
+                var studying by rememberSaveable { mutableStateOf(false) }
+                val studySpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+                AnimatedContent(
+                    targetState = studying,
+                    transitionSpec = {
+                        if (targetState) {
+                            (slideInVertically(studySpec) { it / 4 } + fadeIn()).togetherWith(fadeOut())
+                        } else {
+                            fadeIn().togetherWith(slideOutVertically(studySpec) { it / 4 } + fadeOut())
+                        }
+                    },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                ) { inStudy ->
+                    if (inStudy) {
+                        LaunchedEffect(deck.id) { studyViewModel.start(deck.id) }
+                        StudyScreen(
+                            deck = deck,
+                            state = studyViewModel.state.collectAsStateWithLifecycle().value,
+                            onReveal = studyViewModel::reveal,
+                            onRate = studyViewModel::rate,
+                            onBack = {
+                                studyViewModel.stop()
+                                studying = false
+                            }
+                        )
+                    } else {
+                        HomeScreen(
+                            decks = decks,
+                            deck = deck,
+                            words = words,
+                            onDeckSelect = { deckId = it.id },
+                            onDeckAction = { deckAction = it },
+                            onAddClick = { adding = true },
+                            onWordClick = { editingId = it.card.id },
+                            onStudyClick = { studying = true }
+                        )
+                    }
+                }
                 if (adding) {
                     AddWordSheet(
                         onAdd = {
