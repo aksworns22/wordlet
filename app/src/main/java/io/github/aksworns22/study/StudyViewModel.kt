@@ -12,7 +12,9 @@ import io.github.aksworns22.data.toWord
 import io.github.aksworns22.fsrs.Card
 import io.github.aksworns22.fsrs.Rating
 import io.github.aksworns22.fsrs.Scheduler
+import io.github.aksworns22.home.Mastery
 import io.github.aksworns22.home.Word
+import io.github.aksworns22.home.mastery
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +52,9 @@ class StudyViewModel(
     private var words: List<Word> = emptyList()
     private var loading: Job? = null
 
+    /** 이번 학습에서 평가한 단어의 id와, 처음 평가하기 전의 [Mastery] */
+    private val studiedFrom = mutableMapOf<Long, Mastery>()
+
     /** [deckId] 단어장의 학습을 시작한다. 화면이 회전해 다시 불려도 이어서 학습한다. */
     fun start(deckId: Long) {
         if (this.deckId == deckId) return
@@ -84,16 +89,19 @@ class StudyViewModel(
         val current = _state.value ?: return
         val card = current.previews[rating]?.card ?: return
         val reviewed = current.word.copy(card = card)
+        studiedFrom.putIfAbsent(card.id, current.word.card.mastery())
         words = words.map { if (it.card.id == card.id) reviewed else it }
         viewModelScope.launch { dao.update(reviewed.toEntity()) }
         _state.value = nextWord(words, clock(), previousId = card.id)?.let(::StudyState)
     }
 
-    fun stop() {
+    /** 학습을 끝내고, 이번에 평가한 단어들이 학습 전에 어느 [Mastery]였는지 돌려준다. */
+    fun stop(): Map<Long, Mastery> {
         loading?.cancel()
         deckId = null
         words = emptyList()
         _state.value = null
+        return studiedFrom.toMap().also { studiedFrom.clear() }
     }
 
     companion object {

@@ -31,6 +31,7 @@ import io.github.aksworns22.deck.DeleteDeckDialog
 import io.github.aksworns22.deck.RenameDeckSheet
 import io.github.aksworns22.home.Deck
 import io.github.aksworns22.home.HomeScreen
+import io.github.aksworns22.home.Mastery
 import io.github.aksworns22.study.StudyScreen
 import io.github.aksworns22.study.StudyViewModel
 import io.github.aksworns22.ui.theme.WordletTheme
@@ -62,6 +63,7 @@ class MainActivity : ComponentActivity() {
                 var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
                 val studyViewModel: StudyViewModel = viewModel(factory = StudyViewModel.Factory)
                 var studying by rememberSaveable { mutableStateOf(false) }
+                var studied by remember { mutableStateOf(emptyMap<Long, Mastery>()) }
                 val studySpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
                 AnimatedContent(
                     targetState = studying,
@@ -82,7 +84,7 @@ class MainActivity : ComponentActivity() {
                             onReveal = studyViewModel::reveal,
                             onRate = studyViewModel::rate,
                             onBack = {
-                                studyViewModel.stop()
+                                studied = studyViewModel.stop()
                                 studying = false
                             }
                         )
@@ -96,7 +98,9 @@ class MainActivity : ComponentActivity() {
                             onImportClick = ankiImport::pickFile,
                             onAddClick = { adding = true },
                             onWordClick = { editingId = it.card.id },
-                            onStudyClick = { studying = true }
+                            onStudyClick = { studying = true },
+                            studied = studied,
+                            onStudiedShown = { studied = emptyMap() }
                         )
                     }
                 }

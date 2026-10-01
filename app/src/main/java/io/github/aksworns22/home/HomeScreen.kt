@@ -5,7 +5,9 @@ import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Animatable
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -112,7 +114,9 @@ fun HomeScreen(
     onAddClick: () -> Unit,
     onWordClick: (Word) -> Unit,
     onStudyClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    studied: Map<Long, Mastery> = emptyMap(),
+    onStudiedShown: () -> Unit = {}
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val searchInteractionSource = remember { MutableInteractionSource() }
@@ -171,7 +175,18 @@ fun HomeScreen(
             )
             return@Scaffold
         }
+        val listState = rememberLazyListState()
+        // 학습에서 돌아오면 방금 학습한 단어가 보이도록 옮기고, 보여준 뒤에는 표시를 지운다.
+        LaunchedEffect(studied) {
+            if (studied.isEmpty()) return@LaunchedEffect
+            val first = visibleWords.indexOfFirst { it.card.id in studied }
+            val shown = listState.layoutInfo.visibleItemsInfo.map { it.index }
+            if (first >= 0 && first !in shown) listState.animateScrollToItem(first)
+            delay(STUDIED_SHOWN_MILLIS)
+            onStudiedShown()
+        }
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding =
                 PaddingValues(
@@ -185,6 +200,7 @@ fun HomeScreen(
                 WordItem(
                     word = word,
                     keyword = query.trim(),
+                    studiedFrom = studied[word.card.id],
                     index = index,
                     count = visibleWords.size,
                     onClick = { onWordClick(word) },
@@ -639,11 +655,15 @@ private fun AddMenuPopup(
     }
 }
 
+/** 방금 학습한 단어를 강조해 보여주는 시간 */
+private const val STUDIED_SHOWN_MILLIS = 2500L
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun WordItem(
     word: Word,
     keyword: String,
+    studiedFrom: Mastery?,
     index: Int,
     count: Int,
     onClick: () -> Unit,
@@ -654,11 +674,19 @@ private fun WordItem(
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.ExtraBold
         )
+    // 방금 학습한 단어는 학습하기 버튼 색으로 물들었다가 천천히 원래 색으로 돌아온다.
+    val containerColor = MaterialTheme.colorScheme.surfaceContainer
+    val studiedColor = MaterialTheme.colorScheme.tertiaryContainer
+    val container = remember { Animatable(if (studiedFrom != null) studiedColor else containerColor) }
+    LaunchedEffect(containerColor) {
+        container.animateTo(containerColor, tween(durationMillis = 1200, delayMillis = 800))
+    }
     SegmentedListItem(
         onClick = onClick,
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         modifier = modifier,
-        colors = ListItemDefaults.segmentedColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = ListItemDefaults.segmentedColors(containerColor = container.value),
+        trailingContent = { MasteryBadge(mastery = word.card.mastery(), studiedFrom = studiedFrom) },
         supportingContent = {
             Text(
                 text = word.meaning.highlight(keyword, highlight),
