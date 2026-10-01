@@ -911,7 +911,7 @@ private fun EmptyResult(modifier: Modifier = Modifier) {
                 Modifier
                     .size(120.dp)
                     .clip(MaterialShapes.Ghostish.toShape())
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .background(MaterialTheme.colorScheme.primary)
         )
         Spacer(Modifier.height(24.dp))
         Text("찾는 단어가 없어요", style = MaterialTheme.typography.headlineSmallEmphasized)
