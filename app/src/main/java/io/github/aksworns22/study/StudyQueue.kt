@@ -9,7 +9,7 @@ import java.time.Instant
  * 동시에 익히는 단어 수의 상한.
  * 학습은 끝없이 이어지지만, 새 단어는 익히는 중인 단어가 이만큼 차 있으면 들이지 않는다.
  */
-const val LEARNING_LIMIT = 20
+const val LEARNING_LIMIT = 10
 
 /**
  * 다음에 학습할 단어를 고른다.
