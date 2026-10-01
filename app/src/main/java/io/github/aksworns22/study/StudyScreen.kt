@@ -353,11 +353,6 @@ private fun RevealButton(onClick: () -> Unit) {
     Button(
         onClick = onClick,
         shapes = ButtonDefaults.shapesFor(height),
-        colors =
-            ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiary,
-                contentColor = MaterialTheme.colorScheme.onTertiary
-            ),
         contentPadding = ButtonDefaults.contentPaddingFor(height),
         modifier =
             Modifier
