@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -41,7 +42,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,6 +56,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import io.github.aksworns22.R
 import io.github.aksworns22.fsrs.Rating
 import io.github.aksworns22.home.Deck
@@ -206,11 +211,7 @@ private fun WordCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = state.word.term,
-                style = MaterialTheme.typography.displayMediumEmphasized,
-                textAlign = TextAlign.Center
-            )
+            Term(state.word.term)
             AnimatedVisibility(
                 visible = revealed,
                 enter =
@@ -237,6 +238,38 @@ private fun WordCard(
                 }
             }
         }
+    }
+}
+
+/** 단어는 한 줄에 들어가는 가장 큰 크기로 보여준다. */
+private val TermMaxFontSize = 80.sp
+private val TermMinFontSize = 28.sp
+
+/**
+ * 단어를 줄바꿈 없이 한 줄에 들어가는 가장 큰 글자로 보여준다.
+ * 가장 작은 크기로도 넘치는 긴 구절만 그 크기로 줄바꿈한다.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun Term(term: String) {
+    var wrap by remember(term) { mutableStateOf(false) }
+    val style = MaterialTheme.typography.displayLargeEmphasized.copy(lineHeight = 1.15.em)
+    if (wrap) {
+        Text(
+            text = term,
+            style = style.copy(fontSize = TermMinFontSize),
+            textAlign = TextAlign.Center
+        )
+    } else {
+        Text(
+            text = term,
+            style = style,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            autoSize = TextAutoSize.StepBased(TermMinFontSize, TermMaxFontSize, stepSize = 2.sp),
+            onTextLayout = { if (it.hasVisualOverflow) wrap = true }
+        )
     }
 }
 
