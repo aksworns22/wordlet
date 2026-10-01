@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.aksworns22.anki.AnkiImportHost
+import io.github.aksworns22.anki.rememberAnkiImportState
 import io.github.aksworns22.deck.DeckAction
 import io.github.aksworns22.deck.DeleteDeckDialog
 import io.github.aksworns22.deck.RenameDeckSheet
@@ -56,6 +58,7 @@ class MainActivity : ComponentActivity() {
                 val words = remember(allWords, deck) { allWords.filter { it.deckId == deck.id } }
                 var deckAction by rememberSaveable { mutableStateOf<DeckAction?>(null) }
                 var adding by rememberSaveable { mutableStateOf(false) }
+                val ankiImport = rememberAnkiImportState()
                 var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
                 val studyViewModel: StudyViewModel = viewModel(factory = StudyViewModel.Factory)
                 var studying by rememberSaveable { mutableStateOf(false) }
@@ -90,6 +93,7 @@ class MainActivity : ComponentActivity() {
                             words = words,
                             onDeckSelect = { deckId = it.id },
                             onDeckAction = { deckAction = it },
+                            onImportClick = ankiImport::pickFile,
                             onAddClick = { adding = true },
                             onWordClick = { editingId = it.card.id },
                             onStudyClick = { studying = true }
@@ -104,6 +108,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onDismiss = { adding = false }
                     )
+                }
+                AnkiImportHost(ankiImport) { name, imported ->
+                    viewModel.importDeck(name, imported) { deckId = it }
                 }
                 val closeDeckAction = { deckAction = null }
                 when (deckAction) {

@@ -60,6 +60,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
+    // 최신 Anki 덱(.apkg)의 컬렉션은 zstd로 압축되어 있다.
+    implementation(variantOf(libs.zstd.jni) { artifactType("aar") })
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

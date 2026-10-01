@@ -1,10 +1,12 @@
 package io.github.aksworns22.home
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandHorizontally
@@ -42,6 +44,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -77,7 +80,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -85,7 +90,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import io.github.aksworns22.R
 import io.github.aksworns22.deck.DeckAction
 import io.github.aksworns22.ui.highlight
@@ -100,6 +108,7 @@ fun HomeScreen(
     words: List<Word>,
     onDeckSelect: (Deck) -> Unit,
     onDeckAction: (DeckAction) -> Unit,
+    onImportClick: () -> Unit,
     onAddClick: () -> Unit,
     onWordClick: (Word) -> Unit,
     onStudyClick: () -> Unit,
@@ -128,6 +137,7 @@ fun HomeScreen(
                 deck = deck,
                 onDeckSelect = onDeckSelect,
                 onDeckAction = onDeckAction,
+                onImportClick = onImportClick,
                 query = query,
                 onQueryChange = { query = it },
                 searching = searching,
@@ -195,6 +205,7 @@ private fun HomeTopBar(
     deck: Deck,
     onDeckSelect: (Deck) -> Unit,
     onDeckAction: (DeckAction) -> Unit,
+    onImportClick: () -> Unit,
     query: String,
     onQueryChange: (String) -> Unit,
     searching: Boolean,
@@ -291,8 +302,9 @@ private fun HomeTopBar(
                         scaleOut(MaterialTheme.motionScheme.defaultSpatialSpec()) +
                         fadeOut()
             ) {
-                AddButton(
-                    onClick = onAddClick,
+                AddMenu(
+                    onAddClick = onAddClick,
+                    onImportClick = onImportClick,
                     nudge = nudgeAddButton,
                     modifier = Modifier.padding(start = 12.dp)
                 )
@@ -468,26 +480,45 @@ private fun DeckMenu(
 }
 
 /**
- * 누르면 쿠키 모양 컨테이너가 스프링으로 회전하는 추가 버튼.
+ * 쿠키 모양 추가 버튼과, 누르면 그 아래로 펼쳐지는 메뉴.
+ * 펼치면 쿠키가 스프링으로 돌며 primary 색으로 짙어지고 +가 ×로 바뀐다.
  * [nudge]가 true면 주기적으로 흔들려 시선을 끈다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AddButton(
-    onClick: () -> Unit,
+private fun AddMenu(
+    onAddClick: () -> Unit,
+    onImportClick: () -> Unit,
     nudge: Boolean,
     modifier: Modifier = Modifier
 ) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val pressRotation by animateFloatAsState(
         targetValue = if (pressed) 90f else 0f,
         animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
     )
+    val expandRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()
+    )
+    val iconRotation by animateFloatAsState(
+        targetValue = if (expanded) 45f else 0f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (expanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (expanded) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
+    )
     val nudgeRotation = remember { Animatable(0f) }
     val nudgeSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
-    LaunchedEffect(nudge) {
-        if (!nudge) {
+    LaunchedEffect(nudge, expanded) {
+        if (!nudge || expanded) {
             nudgeRotation.animateTo(0f, nudgeSpec)
             return@LaunchedEffect
         }
@@ -497,29 +528,114 @@ private fun AddButton(
             nudgeRotation.animateTo(0f, nudgeSpec)
         }
     }
-    val rotation = pressRotation + nudgeRotation.value
+    val rotation = pressRotation + expandRotation + nudgeRotation.value
     val shape = MaterialShapes.Cookie9Sided.toShape()
-    Box(
-        modifier =
-            modifier
-                .size(56.dp)
-                .graphicsLayer { rotationZ = rotation }
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = ripple(),
-                    role = Role.Button,
-                    onClick = onClick
-                ),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_add),
-            contentDescription = "단어 추가",
-            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.graphicsLayer { rotationZ = -rotation }
+    Box(modifier = modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .size(56.dp)
+                    .graphicsLayer { rotationZ = rotation }
+                    .clip(shape)
+                    .background(containerColor)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(),
+                        role = Role.Button,
+                        onClick = { expanded = !expanded }
+                    ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_add),
+                contentDescription = if (expanded) "메뉴 닫기" else "추가",
+                tint = contentColor,
+                modifier = Modifier.graphicsLayer { rotationZ = -rotation + iconRotation }
+            )
+        }
+        AddMenuPopup(
+            expanded = expanded,
+            onDismiss = { expanded = false },
+            items =
+                listOf(
+                    AddMenuItem("단어 추가", R.drawable.ic_add, onAddClick),
+                    AddMenuItem("단어장 가져오기", R.drawable.ic_download, onImportClick)
+                )
         )
+    }
+}
+
+private class AddMenuItem(
+    val label: String,
+    @param:DrawableRes val icon: Int,
+    val onClick: () -> Unit
+)
+
+/** 추가 버튼 바로 아래에 오른쪽 끝을 맞춰 항목들이 차례로 튀어나온다. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AddMenuPopup(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    items: List<AddMenuItem>
+) {
+    val visibleState = remember { MutableTransitionState(false) }
+    visibleState.targetState = expanded
+    // 닫히는 애니메이션이 끝날 때까지 팝업을 남겨 둔다.
+    if (!visibleState.currentState && !visibleState.targetState) return
+    val offsetY = with(LocalDensity.current) { (56.dp + 8.dp).roundToPx() }
+    Popup(
+        alignment = Alignment.TopEnd,
+        offset = IntOffset(0, offsetY),
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items.forEachIndexed { index, item ->
+                val spatialSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
+                val scaleSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+                AnimatedVisibility(
+                    visibleState = visibleState,
+                    enter =
+                        slideInVertically(spatialSpec) { -it * (index + 1) } +
+                            scaleIn(scaleSpec, transformOrigin = TransformOrigin(1f, 0f)) +
+                            fadeIn(),
+                    exit =
+                        slideOutVertically(spatialSpec) { -it * (index + 1) } +
+                            scaleOut(scaleSpec, transformOrigin = TransformOrigin(1f, 0f)) +
+                            fadeOut()
+                ) {
+                    Surface(
+                        onClick = {
+                            onDismiss()
+                            item.onClick()
+                        },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shadowElevation = 3.dp
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier
+                                    .heightIn(min = 56.dp)
+                                    .padding(start = 20.dp, end = 24.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(painterResource(item.icon), contentDescription = null)
+                            Text(
+                                text = item.label,
+                                style = MaterialTheme.typography.titleMediumEmphasized,
+                                modifier = Modifier.padding(start = 12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -659,6 +775,7 @@ private fun HomeScreenPreview() {
             words = sampleWords(),
             onDeckSelect = {},
             onDeckAction = {},
+            onImportClick = {},
             onAddClick = {},
             onWordClick = {},
             onStudyClick = {}
@@ -676,6 +793,7 @@ private fun HomeScreenNoWordsPreview() {
             words = emptyList(),
             onDeckSelect = {},
             onDeckAction = {},
+            onImportClick = {},
             onAddClick = {},
             onWordClick = {},
             onStudyClick = {}

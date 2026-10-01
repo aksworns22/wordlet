@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.aksworns22.anki.AnkiWord
 import io.github.aksworns22.data.DeckDao
+import io.github.aksworns22.data.DeckEntity
 import io.github.aksworns22.data.WordDao
 import io.github.aksworns22.data.WordDatabase
 import io.github.aksworns22.data.toDeck
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 class WordViewModel(
     private val dao: WordDao,
@@ -61,6 +64,30 @@ class WordViewModel(
     /** [deck]을 그 안의 단어와 함께 지운다. */
     fun deleteDeck(deck: Deck) {
         viewModelScope.launch { deckDao.delete(deck.id) }
+    }
+
+    /**
+     * [name] 단어장을 새로 만들어 가져온 단어를 모두 새 카드로 추가하고, 다 넣으면 그 단어장의 id로 [onImported]를 부른다.
+     * 앞의 단어일수록 목록 위에 온다.
+     */
+    fun importDeck(
+        name: String,
+        words: List<AnkiWord>,
+        onImported: (Long) -> Unit
+    ) {
+        viewModelScope.launch {
+            val deckId = deckDao.insert(DeckEntity(name = name))
+            // 카드 id는 생성 시각이라 한꺼번에 만들면 겹치므로, 지금부터 과거로 비어 있는 id를 하나씩 쓴다.
+            val taken = dao.ids().toHashSet()
+            var id = Instant.now().toEpochMilli()
+            val entities =
+                words.map {
+                    while (id in taken) id--
+                    Word(it.term, it.meaning, it.example, deckId, Card(id = id--)).toEntity()
+                }
+            dao.insertAll(entities)
+            onImported(deckId)
+        }
     }
 
     fun update(word: Word) {
