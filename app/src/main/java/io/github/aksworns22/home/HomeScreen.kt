@@ -53,9 +53,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -63,7 +60,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SegmentedListItem
@@ -87,6 +83,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -550,8 +547,7 @@ private fun DeckTab(
     }
 }
 
-/** 단어장 관리 메뉴. 되돌릴 수 없는 삭제는 error 색으로 구분한다. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** 단어장 관리 메뉴. 탭 아래로 알약 항목이 튀어나오고, 되돌릴 수 없는 삭제는 error 색으로 구분한다. */
 @Composable
 private fun DeckMenu(
     expanded: Boolean,
@@ -559,27 +555,29 @@ private fun DeckMenu(
     onAction: (DeckAction) -> Unit,
     canDelete: Boolean
 ) {
-    val count = if (canDelete) 2 else 1
-    DropdownMenuPopup(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, 1)) {
-            DropdownMenuItem(
-                onClick = { onAction(DeckAction.Rename) },
-                text = { Text("이름 바꾸기") },
-                shape = MenuDefaults.itemShape(0, count).shape,
-                leadingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null) }
-            )
+    val items =
+        buildList {
+            add(PillMenuItem("이름 바꾸기", R.drawable.ic_edit, { onAction(DeckAction.Rename) }))
             if (canDelete) {
-                val error = MaterialTheme.colorScheme.error
-                DropdownMenuItem(
-                    onClick = { onAction(DeckAction.Delete) },
-                    text = { Text("삭제") },
-                    shape = MenuDefaults.itemShape(1, count).shape,
-                    colors = MenuDefaults.itemColors(textColor = error, leadingIconColor = error),
-                    leadingIcon = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) }
+                add(
+                    PillMenuItem(
+                        label = "삭제",
+                        icon = R.drawable.ic_delete,
+                        onClick = { onAction(DeckAction.Delete) },
+                        // errorContainer는 분홍 계열 테마에서 단어 카드와 섞여 진한 error 색을 쓴다.
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
                 )
             }
         }
-    }
+    PillMenuPopup(
+        expanded = expanded,
+        onDismiss = onDismiss,
+        items = items,
+        anchorHeight = DeckTabSelectedHeight,
+        alignStart = true
+    )
 }
 
 /**
@@ -656,45 +654,54 @@ private fun AddMenu(
                 modifier = Modifier.graphicsLayer { rotationZ = -rotation + iconRotation }
             )
         }
-        AddMenuPopup(
+        PillMenuPopup(
             expanded = expanded,
             onDismiss = { expanded = false },
             items =
                 listOf(
-                    AddMenuItem("단어 추가", R.drawable.ic_add, onAddClick),
-                    AddMenuItem("단어장 가져오기", R.drawable.ic_download, onImportClick)
-                )
+                    PillMenuItem("단어 추가", R.drawable.ic_add, onAddClick),
+                    PillMenuItem("단어장 가져오기", R.drawable.ic_download, onImportClick)
+                ),
+            anchorHeight = 56.dp
         )
     }
 }
 
-private class AddMenuItem(
+private class PillMenuItem(
     val label: String,
     @param:DrawableRes val icon: Int,
-    val onClick: () -> Unit
+    val onClick: () -> Unit,
+    val containerColor: Color? = null,
+    val contentColor: Color? = null
 )
 
-/** 추가 버튼 바로 아래에 오른쪽 끝을 맞춰 항목들이 차례로 튀어나온다. */
+/**
+ * 높이가 [anchorHeight]인 버튼 바로 아래에서 알약 항목들이 차례로 튀어나오는 메뉴.
+ * [alignStart]면 버튼의 왼쪽 끝에, 아니면 오른쪽 끝에 맞춘다.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AddMenuPopup(
+private fun PillMenuPopup(
     expanded: Boolean,
     onDismiss: () -> Unit,
-    items: List<AddMenuItem>
+    items: List<PillMenuItem>,
+    anchorHeight: Dp,
+    alignStart: Boolean = false
 ) {
     val visibleState = remember { MutableTransitionState(false) }
     visibleState.targetState = expanded
     // 닫히는 애니메이션이 끝날 때까지 팝업을 남겨 둔다.
     if (!visibleState.currentState && !visibleState.targetState) return
-    val offsetY = with(LocalDensity.current) { (56.dp + 8.dp).roundToPx() }
+    val offsetY = with(LocalDensity.current) { (anchorHeight + 8.dp).roundToPx() }
+    val origin = TransformOrigin(if (alignStart) 0f else 1f, 0f)
     Popup(
-        alignment = Alignment.TopEnd,
+        alignment = if (alignStart) Alignment.TopStart else Alignment.TopEnd,
         offset = IntOffset(0, offsetY),
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true)
     ) {
         Column(
-            horizontalAlignment = Alignment.End,
+            horizontalAlignment = if (alignStart) Alignment.Start else Alignment.End,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items.forEachIndexed { index, item ->
@@ -704,11 +711,11 @@ private fun AddMenuPopup(
                     visibleState = visibleState,
                     enter =
                         slideInVertically(spatialSpec) { -it * (index + 1) } +
-                            scaleIn(scaleSpec, transformOrigin = TransformOrigin(1f, 0f)) +
+                            scaleIn(scaleSpec, transformOrigin = origin) +
                             fadeIn(),
                     exit =
                         slideOutVertically(spatialSpec) { -it * (index + 1) } +
-                            scaleOut(scaleSpec, transformOrigin = TransformOrigin(1f, 0f)) +
+                            scaleOut(scaleSpec, transformOrigin = origin) +
                             fadeOut()
                 ) {
                     Surface(
@@ -717,8 +724,8 @@ private fun AddMenuPopup(
                             item.onClick()
                         },
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = item.containerColor ?: MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = item.contentColor ?: MaterialTheme.colorScheme.onPrimaryContainer,
                         shadowElevation = 3.dp
                     ) {
                         Row(
