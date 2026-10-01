@@ -38,10 +38,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonShapes
+import androidx.compose.material3.DropdownMenuGroup
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -49,9 +56,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.SplitButtonDefaults
+import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -77,6 +87,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.aksworns22.R
+import io.github.aksworns22.deck.DeckAction
 import io.github.aksworns22.ui.highlight
 import io.github.aksworns22.ui.theme.WordletTheme
 import kotlinx.coroutines.delay
@@ -84,7 +95,11 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HomeScreen(
+    decks: List<Deck>,
+    deck: Deck,
     words: List<Word>,
+    onDeckSelect: (Deck) -> Unit,
+    onDeckAction: (DeckAction) -> Unit,
     onAddClick: () -> Unit,
     onWordClick: (Word) -> Unit,
     onStudyClick: () -> Unit,
@@ -109,6 +124,10 @@ fun HomeScreen(
         modifier = modifier,
         topBar = {
             HomeTopBar(
+                decks = decks,
+                deck = deck,
+                onDeckSelect = onDeckSelect,
+                onDeckAction = onDeckAction,
                 query = query,
                 onQueryChange = { query = it },
                 searching = searching,
@@ -172,6 +191,10 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun HomeTopBar(
+    decks: List<Deck>,
+    deck: Deck,
+    onDeckSelect: (Deck) -> Unit,
+    onDeckAction: (DeckAction) -> Unit,
     query: String,
     onQueryChange: (String) -> Unit,
     searching: Boolean,
@@ -201,75 +224,245 @@ private fun HomeTopBar(
         animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
     )
 
-    Row(
+    Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(cornerRadius),
+                color = containerColor
+            ) {
+                SearchBarDefaults.InputField(
+                    query = query,
+                    onQueryChange = onQueryChange,
+                    onSearch = { focusManager.clearFocus() },
+                    expanded = false,
+                    onExpandedChange = {},
+                    interactionSource = interactionSource,
+                    placeholder = { Text("단어나 뜻 검색") },
+                    leadingIcon = {
+                        val iconSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+                        AnimatedContent(
+                            targetState = searching,
+                            transitionSpec = {
+                                (scaleIn(iconSpec) + fadeIn()).togetherWith(scaleOut(iconSpec) + fadeOut())
+                            }
+                        ) { active ->
+                            if (active) {
+                                IconButton(onClick = closeSearch) {
+                                    Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "검색 닫기")
+                                }
+                            } else {
+                                Icon(painterResource(R.drawable.ic_search), contentDescription = null)
+                            }
+                        }
+                    },
+                    trailingIcon = {
+                        AnimatedVisibility(
+                            visible = query.isNotEmpty(),
+                            enter = scaleIn(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeIn(),
+                            exit = scaleOut(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut()
+                        ) {
+                            IconButton(onClick = { onQueryChange("") }) {
+                                Icon(painterResource(R.drawable.ic_close), contentDescription = "검색어 지우기")
+                            }
+                        }
+                    }
+                )
+            }
+            // 검색에 집중하도록 추가 버튼은 자리를 비켜주고, 검색창이 그 폭까지 넓어진다.
+            AnimatedVisibility(
+                visible = !searching,
+                enter =
+                    expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                        scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                        fadeIn(),
+                exit =
+                    shrinkHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                        scaleOut(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                        fadeOut()
+            ) {
+                AddButton(
+                    onClick = onAddClick,
+                    nudge = nudgeAddButton,
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+            }
+        }
+        DeckTabs(
+            decks = decks,
+            selected = deck,
+            onSelect = onDeckSelect,
+            onAction = onDeckAction,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+    }
+}
+
+/**
+ * 단어장을 고르는 탭. 고른 단어장은 primary 색의 split button으로 부풀고,
+ * 나머지는 덜 둥근 사각형으로 물러나 지금 보고 있는 단어장이 한눈에 보인다.
+ * 고른 단어장의 ▾를 누르면 관리 메뉴가 열린다.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DeckTabs(
+    decks: List<Deck>,
+    selected: Deck,
+    onSelect: (Deck) -> Unit,
+    onAction: (DeckAction) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+    // 새로 가져온 단어장처럼 화면 밖의 단어장이 골라지면 보이도록 스크롤한다.
+    LaunchedEffect(selected.id, decks.size) {
+        val index = decks.indexOfFirst { it.id == selected.id }
+        val visible = listState.layoutInfo.visibleItemsInfo.any { it.index == index && it.offset >= 0 }
+        if (index >= 0 && !visible) listState.animateScrollToItem(index)
+    }
+    LazyRow(
+        state = listState,
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(cornerRadius),
-            color = containerColor
-        ) {
-            SearchBarDefaults.InputField(
-                query = query,
-                onQueryChange = onQueryChange,
-                onSearch = { focusManager.clearFocus() },
-                expanded = false,
-                onExpandedChange = {},
-                interactionSource = interactionSource,
-                placeholder = { Text("단어나 뜻 검색") },
-                leadingIcon = {
-                    val iconSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
-                    AnimatedContent(
-                        targetState = searching,
-                        transitionSpec = {
-                            (scaleIn(iconSpec) + fadeIn()).togetherWith(scaleOut(iconSpec) + fadeOut())
-                        }
-                    ) { active ->
-                        if (active) {
-                            IconButton(onClick = closeSearch) {
-                                Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "검색 닫기")
-                            }
-                        } else {
-                            Icon(painterResource(R.drawable.ic_search), contentDescription = null)
-                        }
-                    }
-                },
-                trailingIcon = {
-                    AnimatedVisibility(
-                        visible = query.isNotEmpty(),
-                        enter = scaleIn(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeIn(),
-                        exit = scaleOut(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut()
-                    ) {
-                        IconButton(onClick = { onQueryChange("") }) {
-                            Icon(painterResource(R.drawable.ic_close), contentDescription = "검색어 지우기")
-                        }
-                    }
+        items(decks, key = { it.id }) { deck ->
+            val itemModifier = Modifier.animateItem()
+            if (deck.id == selected.id) {
+                SelectedDeckTab(
+                    deck = deck,
+                    onAction = onAction,
+                    // 기본 단어장은 단어를 넣을 곳으로 늘 남겨 둔다.
+                    canDelete = deck.id != Deck.BASIC_ID,
+                    modifier = itemModifier
+                )
+            } else {
+                Button(
+                    onClick = { onSelect(deck) },
+                    shapes = ButtonShapes(MaterialTheme.shapes.medium, MaterialTheme.shapes.small),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                    modifier = itemModifier.heightIn(min = DeckTabHeight)
+                ) {
+                    Text(deck.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                 }
-            )
+            }
         }
-        // 검색에 집중하도록 추가 버튼은 자리를 비켜주고, 검색창이 그 폭까지 넓어진다.
-        AnimatedVisibility(
-            visible = !searching,
-            enter =
-                expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
-                    scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec()) +
-                    fadeIn(),
-            exit =
-                shrinkHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
-                    scaleOut(MaterialTheme.motionScheme.defaultSpatialSpec()) +
-                    fadeOut()
-        ) {
-            AddButton(
-                onClick = onAddClick,
-                nudge = nudgeAddButton,
-                modifier = Modifier.padding(start = 12.dp)
+    }
+}
+
+private val DeckTabHeight = 48.dp
+
+/**
+ * 고른 단어장 탭. 이름과 ▾가 나뉜 split button으로, ▾를 누르면 알약이 둥글게 morph되고
+ * 화살표가 뒤집히며 이름 바꾸기·삭제 메뉴가 열린다.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SelectedDeckTab(
+    deck: Deck,
+    onAction: (DeckAction) -> Unit,
+    canDelete: Boolean,
+    modifier: Modifier = Modifier
+) {
+    var menuExpanded by rememberSaveable { mutableStateOf(false) }
+    val colors =
+        ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    SplitButtonLayout(
+        modifier = modifier,
+        leadingButton = {
+            SplitButtonDefaults.LeadingButton(
+                // 이미 고른 단어장이라 이름을 눌러도 할 일이 없다.
+                onClick = {},
+                shapes = SplitButtonDefaults.leadingButtonShapesFor(DeckTabHeight),
+                colors = colors,
+                contentPadding = SplitButtonDefaults.leadingButtonContentPaddingFor(DeckTabHeight),
+                modifier = Modifier.heightIn(min = DeckTabHeight)
+            ) {
+                Text(deck.name, style = MaterialTheme.typography.titleMediumEmphasized, maxLines = 1)
+            }
+        },
+        trailingButton = {
+            Box {
+                val arrowRotation by animateFloatAsState(
+                    targetValue = if (menuExpanded) 180f else 0f,
+                    animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
+                )
+                SplitButtonDefaults.TrailingButton(
+                    checked = menuExpanded,
+                    onCheckedChange = { menuExpanded = it },
+                    shapes = SplitButtonDefaults.trailingButtonShapesFor(DeckTabHeight),
+                    colors = colors,
+                    contentPadding = SplitButtonDefaults.trailingButtonContentPaddingFor(DeckTabHeight),
+                    modifier = Modifier.heightIn(min = DeckTabHeight)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_expand_more),
+                        contentDescription = "단어장 관리",
+                        modifier =
+                            Modifier
+                                .size(SplitButtonDefaults.trailingButtonIconSizeFor(DeckTabHeight))
+                                .graphicsLayer { rotationZ = arrowRotation }
+                    )
+                }
+                DeckMenu(
+                    expanded = menuExpanded,
+                    onDismiss = { menuExpanded = false },
+                    onAction = {
+                        menuExpanded = false
+                        onAction(it)
+                    },
+                    canDelete = canDelete
+                )
+            }
+        }
+    )
+}
+
+/** 단어장 관리 메뉴. 되돌릴 수 없는 삭제는 error 색으로 구분한다. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DeckMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onAction: (DeckAction) -> Unit,
+    canDelete: Boolean
+) {
+    val count = if (canDelete) 2 else 1
+    DropdownMenuPopup(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuGroup(shapes = MenuDefaults.groupShape(0, 1)) {
+            DropdownMenuItem(
+                onClick = { onAction(DeckAction.Rename) },
+                text = { Text("이름 바꾸기") },
+                shape = MenuDefaults.itemShape(0, count).shape,
+                leadingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null) }
             )
+            if (canDelete) {
+                val error = MaterialTheme.colorScheme.error
+                DropdownMenuItem(
+                    onClick = { onAction(DeckAction.Delete) },
+                    text = { Text("삭제") },
+                    shape = MenuDefaults.itemShape(1, count).shape,
+                    colors = MenuDefaults.itemColors(textColor = error, leadingIconColor = error),
+                    leadingIcon = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) }
+                )
+            }
         }
     }
 }
@@ -460,7 +653,16 @@ private fun EmptyResult(modifier: Modifier = Modifier) {
 @Composable
 private fun HomeScreenPreview() {
     WordletTheme(dynamicColor = false) {
-        HomeScreen(words = sampleWords(), onAddClick = {}, onWordClick = {}, onStudyClick = {})
+        HomeScreen(
+            decks = sampleDecks,
+            deck = sampleDecks.first(),
+            words = sampleWords(),
+            onDeckSelect = {},
+            onDeckAction = {},
+            onAddClick = {},
+            onWordClick = {},
+            onStudyClick = {}
+        )
     }
 }
 
@@ -468,6 +670,15 @@ private fun HomeScreenPreview() {
 @Composable
 private fun HomeScreenNoWordsPreview() {
     WordletTheme(dynamicColor = false) {
-        HomeScreen(words = emptyList(), onAddClick = {}, onWordClick = {}, onStudyClick = {})
+        HomeScreen(
+            decks = sampleDecks.take(1),
+            deck = sampleDecks.first(),
+            words = emptyList(),
+            onDeckSelect = {},
+            onDeckAction = {},
+            onAddClick = {},
+            onWordClick = {},
+            onStudyClick = {}
+        )
     }
 }

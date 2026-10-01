@@ -5,7 +5,15 @@ import io.github.aksworns22.fsrs.State
 import java.time.Duration
 import java.time.Instant
 
-// 저장소가 생기기 전까지 홈 화면에 보여줄 임시 데이터
+// 미리보기에 쓰는 샘플 데이터
+val sampleDecks =
+    listOf(
+        Deck(Deck.BASIC_ID, Deck.BASIC_NAME),
+        Deck(2, "토익"),
+        Deck(3, "여행 회화"),
+        Deck(4, "논문 읽기")
+    )
+
 fun sampleWords(now: Instant = Instant.now()): List<Word> {
     fun reviewed(
         id: Long,
