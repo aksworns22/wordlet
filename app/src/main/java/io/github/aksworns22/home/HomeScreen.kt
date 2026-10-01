@@ -692,6 +692,8 @@ private fun PillMenuPopup(
     visibleState.targetState = expanded
     // 닫히는 애니메이션이 끝날 때까지 팝업을 남겨 둔다.
     if (!visibleState.currentState && !visibleState.targetState) return
+    // 스프링이 목표를 넘어 커질 때 팝업 창 밖으로 나가 잘리지 않도록 버튼 반대쪽에 두는 여유 공간
+    val overshootMargin = 32.dp
     val offsetY = with(LocalDensity.current) { (anchorHeight + 8.dp).roundToPx() }
     val origin = TransformOrigin(if (alignStart) 0f else 1f, 0f)
     Popup(
@@ -701,6 +703,12 @@ private fun PillMenuPopup(
         properties = PopupProperties(focusable = true)
     ) {
         Column(
+            modifier =
+                Modifier.padding(
+                    start = if (alignStart) 0.dp else overshootMargin,
+                    end = if (alignStart) overshootMargin else 0.dp,
+                    bottom = overshootMargin
+                ),
             horizontalAlignment = if (alignStart) Alignment.Start else Alignment.End,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -725,8 +733,7 @@ private fun PillMenuPopup(
                         },
                         shape = CircleShape,
                         color = item.containerColor ?: MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = item.contentColor ?: MaterialTheme.colorScheme.onPrimaryContainer,
-                        shadowElevation = 3.dp
+                        contentColor = item.contentColor ?: MaterialTheme.colorScheme.onPrimaryContainer
                     ) {
                         Row(
                             modifier =
