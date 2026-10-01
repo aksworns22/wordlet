@@ -53,7 +53,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
@@ -68,8 +67,6 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SegmentedListItem
-import androidx.compose.material3.SplitButtonDefaults
-import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -388,9 +385,9 @@ private fun HomeTopBar(
 }
 
 /**
- * 단어장을 고르는 탭. 고른 단어장은 primary 색의 split button으로 부풀고,
+ * 단어장을 고르는 탭. 고른 단어장은 키가 커지며 primary 색 알약으로 부풀고 ▾ 쿠키가 튀어나오며,
  * 나머지는 덜 둥근 사각형으로 물러나 지금 보고 있는 단어장이 한눈에 보인다.
- * 고른 단어장의 ▾를 누르면 관리 메뉴가 열린다.
+ * 고른 단어장을 누르면 관리 메뉴가 열린다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -410,108 +407,147 @@ private fun DeckTabs(
     }
     LazyRow(
         state = listState,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().heightIn(min = DeckTabSelectedHeight),
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         items(decks, key = { it.id }) { deck ->
-            val itemModifier = Modifier.animateItem()
-            if (deck.id == selected.id) {
-                SelectedDeckTab(
-                    deck = deck,
-                    onAction = onAction,
-                    // 기본 단어장은 단어를 넣을 곳으로 늘 남겨 둔다.
-                    canDelete = deck.id != Deck.BASIC_ID,
-                    modifier = itemModifier
-                )
-            } else {
-                Button(
-                    onClick = { onSelect(deck) },
-                    shapes = ButtonShapes(MaterialTheme.shapes.medium, MaterialTheme.shapes.small),
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                    modifier = itemModifier.heightIn(min = DeckTabHeight)
-                ) {
-                    Text(deck.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                }
-            }
+            DeckTab(
+                deck = deck,
+                selected = deck.id == selected.id,
+                onSelect = { onSelect(deck) },
+                onAction = onAction,
+                // 기본 단어장은 단어를 넣을 곳으로 늘 남겨 둔다.
+                canDelete = deck.id != Deck.BASIC_ID,
+                modifier = Modifier.animateItem()
+            )
         }
     }
 }
 
-private val DeckTabHeight = 48.dp
+// 검색창(56dp)보다 확실히 작아 검색창이 주인공으로 남는다.
+private val DeckTabHeight = 32.dp
+private val DeckTabSelectedHeight = 40.dp
 
 /**
- * 고른 단어장 탭. 이름과 ▾가 나뉜 split button으로, ▾를 누르면 알약이 둥글게 morph되고
- * 화살표가 뒤집히며 이름 바꾸기·삭제 메뉴가 열린다.
+ * 단어장 탭 하나. 골라지면 모서리, 키, 색이 스프링으로 함께 변해 사각형이 알약으로 부풀고
+ * ▾ 쿠키가 옆에서 굴러 나온다. 누르면 모서리가 오므라들며 살짝 눌린다.
+ * 메뉴가 열리면 쿠키가 반 바퀴 돌아 ▴를 가리킨다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SelectedDeckTab(
+private fun DeckTab(
     deck: Deck,
+    selected: Boolean,
+    onSelect: () -> Unit,
     onAction: (DeckAction) -> Unit,
     canDelete: Boolean,
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
-    val colors =
-        ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        )
-    SplitButtonLayout(
-        modifier = modifier,
-        leadingButton = {
-            SplitButtonDefaults.LeadingButton(
-                // 이미 고른 단어장이라 이름을 눌러도 할 일이 없다.
-                onClick = {},
-                shapes = SplitButtonDefaults.leadingButtonShapesFor(DeckTabHeight),
-                colors = colors,
-                contentPadding = SplitButtonDefaults.leadingButtonContentPaddingFor(DeckTabHeight),
-                modifier = Modifier.heightIn(min = DeckTabHeight)
+    if (!selected) menuExpanded = false
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
+    val height by animateDpAsState(if (selected) DeckTabSelectedHeight else DeckTabHeight, spatial)
+    val corner by animateDpAsState(
+        targetValue =
+            when {
+                pressed -> 6.dp
+                selected -> DeckTabSelectedHeight / 2
+                else -> 10.dp
+            },
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.92f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
+    )
+    Box(modifier = modifier) {
+        Row(
+            modifier =
+                Modifier
+                    .height(height)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }.clip(RoundedCornerShape(corner))
+                    .background(containerColor)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(),
+                        role = Role.Tab,
+                        onClick = { if (selected) menuExpanded = !menuExpanded else onSelect() }
+                    ).padding(start = 14.dp, end = if (selected) 6.dp else 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = deck.name,
+                style =
+                    if (selected) {
+                        MaterialTheme.typography.titleSmallEmphasized
+                    } else {
+                        MaterialTheme.typography.labelLarge
+                    },
+                color = contentColor,
+                maxLines = 1
+            )
+            androidx.compose.animation.AnimatedVisibility(
+                visible = selected,
+                enter =
+                    expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                        scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec()),
+                exit =
+                    shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()) +
+                        scaleOut(MaterialTheme.motionScheme.fastSpatialSpec())
             ) {
-                Text(deck.name, style = MaterialTheme.typography.titleMediumEmphasized, maxLines = 1)
-            }
-        },
-        trailingButton = {
-            Box {
-                val arrowRotation by animateFloatAsState(
+                // 쿠키가 굴러 들어오듯 돌며 나타나고, 메뉴가 열리면 반 바퀴 더 돈다.
+                val enterSpinSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+                val enterSpin by transition.animateFloat(transitionSpec = { enterSpinSpec }) {
+                    if (it == EnterExitState.Visible) 0f else -180f
+                }
+                val menuSpin by animateFloatAsState(
                     targetValue = if (menuExpanded) 180f else 0f,
-                    animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
+                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()
                 )
-                SplitButtonDefaults.TrailingButton(
-                    checked = menuExpanded,
-                    onCheckedChange = { menuExpanded = it },
-                    shapes = SplitButtonDefaults.trailingButtonShapesFor(DeckTabHeight),
-                    colors = colors,
-                    contentPadding = SplitButtonDefaults.trailingButtonContentPaddingFor(DeckTabHeight),
-                    modifier = Modifier.heightIn(min = DeckTabHeight)
+                Box(
+                    modifier =
+                        Modifier
+                            .padding(start = 6.dp)
+                            .size(28.dp)
+                            .graphicsLayer { rotationZ = enterSpin + menuSpin }
+                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_expand_more),
                         contentDescription = "단어장 관리",
-                        modifier =
-                            Modifier
-                                .size(SplitButtonDefaults.trailingButtonIconSizeFor(DeckTabHeight))
-                                .graphicsLayer { rotationZ = arrowRotation }
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-                DeckMenu(
-                    expanded = menuExpanded,
-                    onDismiss = { menuExpanded = false },
-                    onAction = {
-                        menuExpanded = false
-                        onAction(it)
-                    },
-                    canDelete = canDelete
-                )
             }
         }
-    )
+        DeckMenu(
+            expanded = menuExpanded,
+            onDismiss = { menuExpanded = false },
+            onAction = {
+                menuExpanded = false
+                onAction(it)
+            },
+            canDelete = canDelete
+        )
+    }
 }
 
 /** 단어장 관리 메뉴. 되돌릴 수 없는 삭제는 error 색으로 구분한다. */
