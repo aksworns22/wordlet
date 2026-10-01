@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -11,8 +12,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,12 +40,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,7 +56,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,39 +67,34 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import io.github.aksworns22.R
 import io.github.aksworns22.fsrs.Rating
-import io.github.aksworns22.home.Deck
-import io.github.aksworns22.home.sampleDecks
 import io.github.aksworns22.home.sampleWords
 import io.github.aksworns22.ui.theme.WordletTheme
 import java.time.Duration
 
-/** 단어를 하나씩 보여주고 평가받는 학습 화면. 뒤로 나가면 학습이 끝난다. */
+/** 단어를 하나씩 보여주고 평가받는 학습 화면. 끝내기를 누르거나 뒤로 나가면 학습이 끝난다. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun StudyScreen(
-    deck: Deck,
     state: StudyState?,
     onReveal: () -> Unit,
     onRate: (Rating) -> Unit,
-    onBack: () -> Unit,
+    onFinish: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onBack)
+    BackHandler(onBack = onFinish)
     Surface(modifier = modifier.fillMaxSize()) {
-        StudyContent(deck, state, onReveal, onRate, onBack)
+        StudyContent(state, onReveal, onRate, onFinish)
     }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StudyContent(
-    deck: Deck,
     state: StudyState?,
     onReveal: () -> Unit,
     onRate: (Rating) -> Unit,
-    onBack: () -> Unit
+    onFinish: () -> Unit
 ) {
     Column(
         modifier =
@@ -99,19 +103,7 @@ private fun StudyContent(
                 .statusBarsPadding()
                 .navigationBarsPadding()
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "학습 끝내기")
-            }
-            Text(
-                text = deck.name,
-                style = MaterialTheme.typography.titleLargeEmphasized,
-                maxLines = 1
-            )
-        }
+        StudyTopBar(studied = state?.studied ?: 0, onFinish = onFinish)
         if (state == null) return@Column
         val slideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
         val popSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
@@ -149,6 +141,87 @@ private fun StudyContent(
                     RevealButton(onClick = onReveal)
                 }
             }
+        }
+    }
+}
+
+/**
+ * 왼쪽엔 이번에 학습한 단어 수를, 오른쪽엔 학습을 끝내는 버튼을 둔다.
+ * 남은 양이 아니라 쌓인 양만 보여줘 할 일처럼 느껴지지 않게 한다.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun StudyTopBar(
+    studied: Int,
+    onFinish: () -> Unit
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        StudiedCountBadge(studied)
+        Spacer(Modifier.weight(1f))
+        val height = 40.dp
+        FilledTonalButton(
+            onClick = onFinish,
+            shapes = ButtonDefaults.shapesFor(height),
+            contentPadding = ButtonDefaults.contentPaddingFor(height),
+            modifier = Modifier.heightIn(min = height)
+        ) {
+            Text(text = "끝내기", style = MaterialTheme.typography.titleSmallEmphasized)
+        }
+    }
+}
+
+/** 단어를 평가할 때마다 결과 화면 hero와 같은 도형이 돌며 톡 튀고 숫자가 올라간다. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun StudiedCountBadge(count: Int) {
+    val colors = MaterialTheme.colorScheme
+    val rotation by animateFloatAsState(
+        targetValue = count * 40f,
+        animationSpec = MaterialTheme.motionScheme.slowSpatialSpec()
+    )
+    val pop = remember { Animatable(1f) }
+    val popUp = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    val settle = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    LaunchedEffect(count) {
+        if (count == 0) return@LaunchedEffect
+        pop.animateTo(1.2f, popUp)
+        pop.animateTo(1f, settle)
+    }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier =
+            Modifier
+                .size(48.dp)
+                .graphicsLayer {
+                    scaleX = pop.value
+                    scaleY = pop.value
+                }.semantics(mergeDescendants = true) { contentDescription = "학습한 단어 ${count}개" }
+    ) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer { rotationZ = rotation }
+                .background(colors.tertiary, MaterialShapes.Cookie9Sided.toShape())
+        )
+        AnimatedContent(
+            targetState = count,
+            transitionSpec = {
+                (slideInVertically { it } + fadeIn()).togetherWith(slideOutVertically { -it } + fadeOut())
+            }
+        ) {
+            Text(
+                text = "$it",
+                style = MaterialTheme.typography.titleMediumEmphasized,
+                color = colors.onTertiary,
+                maxLines = 1,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
         }
     }
 }
@@ -399,11 +472,10 @@ private fun RatingButtons(
 private fun StudyScreenPreview() {
     WordletTheme(dynamicColor = false) {
         StudyScreen(
-            deck = sampleDecks.first(),
-            state = StudyState(sampleWords().first()),
+            state = StudyState(sampleWords().first(), studied = 12),
             onReveal = {},
             onRate = {},
-            onBack = {}
+            onFinish = {}
         )
     }
 }
@@ -415,7 +487,6 @@ private fun StudyScreenRevealedPreview() {
     val intervals = listOf(Duration.ofMinutes(1), Duration.ofMinutes(6), Duration.ofMinutes(10), Duration.ofDays(8))
     WordletTheme(dynamicColor = false) {
         StudyScreen(
-            deck = sampleDecks.first(),
             state =
                 StudyState(
                     word = word,
@@ -423,7 +494,7 @@ private fun StudyScreenRevealedPreview() {
                 ),
             onReveal = {},
             onRate = {},
-            onBack = {}
+            onFinish = {}
         )
     }
 }

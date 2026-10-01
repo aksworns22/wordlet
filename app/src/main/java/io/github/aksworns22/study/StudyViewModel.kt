@@ -32,7 +32,9 @@ data class RatingPreview(
 data class StudyState(
     val word: Word,
     /** 정답을 보기 전에는 비어 있다. */
-    val previews: Map<Rating, RatingPreview> = emptyMap()
+    val previews: Map<Rating, RatingPreview> = emptyMap(),
+    /** 이번 학습에서 평가한 단어 수 */
+    val studied: Int = 0
 ) {
     val revealed: Boolean get() = previews.isNotEmpty()
 }
@@ -43,7 +45,7 @@ data class StudiedWord(
     val from: Mastery
 )
 
-/** 학습은 끝이 없고, 사용자가 뒤로 나가면 [stop]으로 끝난다. */
+/** 학습은 끝이 없고, 사용자가 끝내면 [stop]으로 끝난다. */
 class StudyViewModel(
     private val dao: WordDao,
     private val scheduler: Scheduler = Scheduler(),
@@ -98,7 +100,7 @@ class StudyViewModel(
         studiedFrom.putIfAbsent(card.id, current.word.card.mastery())
         words = words.map { if (it.card.id == card.id) reviewed else it }
         viewModelScope.launch { dao.update(reviewed.toEntity()) }
-        _state.value = nextWord(words, clock(), previousId = card.id)?.let(::StudyState)
+        _state.value = nextWord(words, clock(), previousId = card.id)?.let { StudyState(it, studied = studiedFrom.size) }
     }
 
     /** 학습을 끝내고, 이번에 평가한 단어들을 처음 평가한 순서대로 돌려준다. */

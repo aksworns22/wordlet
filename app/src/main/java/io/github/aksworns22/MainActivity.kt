@@ -89,11 +89,10 @@ class MainActivity : ComponentActivity() {
                         Screen.Study -> {
                             LaunchedEffect(deck.id) { studyViewModel.start(deck.id) }
                             StudyScreen(
-                                deck = deck,
                                 state = studyViewModel.state.collectAsStateWithLifecycle().value,
                                 onReveal = studyViewModel::reveal,
                                 onRate = studyViewModel::rate,
-                                onBack = {
+                                onFinish = {
                                     studied = studyViewModel.stop()
                                     screen = if (studied.isEmpty()) Screen.Home else Screen.Result
                                 }
