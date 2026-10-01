@@ -223,7 +223,7 @@ private fun WordCard(
                     Spacer(Modifier.height(24.dp))
                     Text(
                         text = state.word.meaning,
-                        style = MaterialTheme.typography.headlineSmallEmphasized,
+                        style = MaterialTheme.typography.titleLarge,
                         textAlign = TextAlign.Center
                     )
                     if (state.word.example.isNotBlank()) {
