@@ -51,19 +51,23 @@ class AnkiImportState internal constructor(
         picker.launch(arrayOf("*/*"))
     }
 
-    internal fun read(uri: Uri) {
+    internal fun read(uri: Uri) =
+        read(displayName(uri)) {
+            val input = context.contentResolver.openInputStream(uri) ?: throw UnsupportedApkgException()
+            input.use { ApkgReader.read(it, context.cacheDir) }
+        }
+
+    /** [fileName]의 덱을 [load]로 읽어 필드 짝짓기 시트에 띄운다. */
+    private fun read(
+        fileName: String?,
+        load: () -> List<AnkiNoteType>
+    ) {
         open = true
         noteTypes = null
-        deckName = displayName(uri)?.substringBeforeLast('.')?.takeIf { it.isNotBlank() } ?: "Anki 덱"
+        deckName = fileName?.substringBeforeLast('.')?.takeIf { it.isNotBlank() } ?: "Anki 덱"
         reading =
             scope.launch {
-                val result =
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            val input = context.contentResolver.openInputStream(uri) ?: throw UnsupportedApkgException()
-                            input.use { ApkgReader.read(it, context.cacheDir) }
-                        }
-                    }
+                val result = runCatching { withContext(Dispatchers.IO) { load() } }
                 // 시트를 닫아 취소됐으면 실패로 알리지 않는다.
                 ensureActive()
                 // .apkg가 아닌 파일은 예상한 실패라 보내지 않는다.
