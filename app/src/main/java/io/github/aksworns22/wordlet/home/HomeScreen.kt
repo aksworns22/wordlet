@@ -1,7 +1,6 @@
 package io.github.aksworns22.wordlet.home
 
 import androidx.activity.compose.BackHandler
-import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
@@ -573,10 +572,9 @@ private fun DeckMenu(
 ) {
     val items =
         listOf(
-            PillMenuItem("이름 바꾸기", R.drawable.ic_edit, { onAction(DeckAction.Rename) }),
+            PillMenuItem("이름 바꾸기", { onAction(DeckAction.Rename) }),
             PillMenuItem(
                 label = if (isBasic) "초기화" else "삭제",
-                icon = R.drawable.ic_delete,
                 onClick = { onAction(if (isBasic) DeckAction.Clear else DeckAction.Delete) },
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -652,8 +650,8 @@ private fun AddMenu(
             onDismiss = { expanded = false },
             items =
                 listOf(
-                    PillMenuItem("단어 추가", R.drawable.ic_add, onAddClick),
-                    PillMenuItem("단어장 가져오기", R.drawable.ic_download, onImportClick)
+                    PillMenuItem("단어 추가", onAddClick),
+                    PillMenuItem("단어장 가져오기", onImportClick)
                 ),
             anchorHeight = 56.dp
         )
@@ -662,7 +660,6 @@ private fun AddMenu(
 
 private class PillMenuItem(
     val label: String,
-    @param:DrawableRes val icon: Int,
     val onClick: () -> Unit,
     val containerColor: Color? = null,
     val contentColor: Color? = null
@@ -731,15 +728,13 @@ private fun PillMenuPopup(
                         Row(
                             modifier =
                                 Modifier
-                                    .heightIn(min = 56.dp)
-                                    .padding(start = 20.dp, end = 24.dp),
+                                    .heightIn(min = 48.dp)
+                                    .padding(horizontal = 24.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(painterResource(item.icon), contentDescription = null)
                             Text(
                                 text = item.label,
-                                style = MaterialTheme.typography.titleMediumEmphasized,
-                                modifier = Modifier.padding(start = 12.dp)
+                                style = MaterialTheme.typography.titleMediumEmphasized
                             )
                         }
                     }
