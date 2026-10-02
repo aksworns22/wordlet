@@ -79,14 +79,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onInterceptKeyBeforeSoftKeyboard
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
@@ -251,10 +258,12 @@ private fun HomeTopBar(
     onAddClick: () -> Unit,
     tabsState: TopAppBarState
 ) {
-    val focusManager = LocalFocusManager.current
+    // 구버전에선 clearFocus()가 포커스를 검색창으로 되돌려 놓으니, 검색창을 감싼 상단바로 포커스를 옮겨 뺀다.
+    val barFocus = remember { FocusRequester() }
+    val leaveSearchField: () -> Unit = { barFocus.requestFocus() }
     val closeSearch = {
         onQueryChange("")
-        focusManager.clearFocus()
+        leaveSearchField()
     }
     BackHandler(enabled = searching, onBack = closeSearch)
 
@@ -277,6 +286,8 @@ private fun HomeTopBar(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .focusRequester(barFocus)
+                .focusTarget()
                 .background(MaterialTheme.colorScheme.surface)
                 .statusBarsPadding()
                 .padding(vertical = 8.dp)
@@ -293,10 +304,17 @@ private fun HomeTopBar(
                 SearchBarDefaults.InputField(
                     query = query,
                     onQueryChange = onQueryChange,
-                    onSearch = { focusManager.clearFocus() },
+                    onSearch = { leaveSearchField() },
                     expanded = false,
                     onExpandedChange = {},
                     interactionSource = interactionSource,
+                    // 구버전에선 키보드가 뒤로가기를 먼저 가져가 키보드만 내려가니, 그 전에 가로채 검색을 닫는다.
+                    modifier =
+                        Modifier.onInterceptKeyBeforeSoftKeyboard {
+                            if (it.key != Key.Back || !searching) return@onInterceptKeyBeforeSoftKeyboard false
+                            if (it.type == KeyEventType.KeyUp) closeSearch()
+                            true
+                        },
                     placeholder = { Text("단어나 뜻 검색") },
                     leadingIcon = {
                         val iconSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
