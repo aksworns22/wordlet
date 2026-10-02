@@ -3,6 +3,7 @@ package io.github.aksworns22.wordlet.study
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
@@ -39,6 +40,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialShapes
@@ -64,12 +66,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.aksworns22.fsrs.Rating
 import io.github.aksworns22.wordlet.home.sampleWords
 import io.github.aksworns22.wordlet.ui.theme.WordletTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.Duration
 
 /** 단어를 하나씩 보여주고 평가받는 학습 화면. 끝내기를 누르거나 뒤로 나가면 학습이 끝난다. */
@@ -106,40 +111,59 @@ private fun StudyContent(
         StudyTopBar(studied = state?.studied ?: 0, onFinish = onFinish)
         if (state == null) return@Column
         val slideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
-        val popSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
-        // 다음 단어는 오른쪽에서 밀려 들어오고 평가한 단어는 왼쪽으로 빠진다.
+        // 카드와 버튼을 한 장으로 묶어, 다음 단어는 오른쪽에서 통째로 밀려 들어오고
+        // 평가한 단어는 버튼까지 그대로 왼쪽으로 빠진다.
         AnimatedContent(
             targetState = state,
             contentKey = { it.word.card.id },
             transitionSpec = {
-                (slideInHorizontally(slideSpec) { it } + fadeIn())
-                    .togetherWith(slideOutHorizontally(slideSpec) { -it / 2 } + fadeOut())
+                slideInHorizontally(slideSpec) { it }
+                    .togetherWith(slideOutHorizontally(slideSpec) { -it })
             },
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
+            modifier = Modifier.weight(1f)
         ) { current ->
-            WordCard(state = current)
+            StudyPage(state = current, onReveal = onReveal, onRate = onRate)
         }
+    }
+}
+
+/** 단어 하나를 학습하는 한 장. 위엔 단어 카드를, 아래엔 정답 보기나 평가 버튼을 둔다. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun StudyPage(
+    state: StudyState,
+    onReveal: () -> Unit,
+    onRate: (Rating) -> Unit
+) {
+    Column(Modifier.fillMaxSize()) {
         Box(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = 16.dp)
+        ) {
+            WordCard(state = state)
+        }
+        val popSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+        val sizeSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+        val fadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+        // 높이가 바뀌는 동안 버튼들이 아래 끝에 붙어 있도록 한다.
+        AnimatedContent(
+            targetState = state.revealed,
+            contentAlignment = Alignment.BottomCenter,
+            transitionSpec = {
+                (fadeIn(fadeSpec) + scaleIn(popSpec, initialScale = 0.9f))
+                    .togetherWith(fadeOut(fadeSpec))
+                    .using(SizeTransform(clip = false) { _, _ -> sizeSpec })
+            },
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
-        ) {
-            AnimatedContent(
-                targetState = state.revealed,
-                transitionSpec = {
-                    (fadeIn() + scaleIn(popSpec, initialScale = 0.9f))
-                        .togetherWith(fadeOut())
-                }
-            ) { revealed ->
-                if (revealed) {
-                    RatingButtons(previews = state.previews, onRate = onRate)
-                } else {
-                    RevealButton(onClick = onReveal)
-                }
+        ) { revealed ->
+            if (revealed) {
+                RatingButtons(previews = state.previews, onRate = onRate)
+            } else {
+                RevealButton(onClick = onReveal)
             }
         }
     }
@@ -371,9 +395,47 @@ private val Rating.label: String
             Rating.Easy -> "쉬워요"
         }
 
+/** 평가 버튼 색. 가장 자주 누를 "알아요"만 primary로 채우고 나머지는 container 톤으로 물러나게 한다. */
+@Composable
+private fun ratingColors(rating: Rating): Pair<Color, Color> {
+    val colors = MaterialTheme.colorScheme
+    return when (rating) {
+        Rating.Again -> colors.errorContainer to colors.onErrorContainer
+        Rating.Hard -> colors.tertiaryContainer to colors.onTertiaryContainer
+        Rating.Good -> colors.primary to colors.onPrimary
+        Rating.Easy -> colors.secondaryContainer to colors.onSecondaryContainer
+    }
+}
+
+/** 평가 버튼을 놓는 2×2 자리. 윗줄은 쉬워요·알아요, 아랫줄은 어려워요·몰라요. */
+private val RatingRows = listOf(listOf(Rating.Easy, Rating.Good), listOf(Rating.Hard, Rating.Again))
+
+private val RatingButtonHeight = 80.dp
+private val RatingRoundCorner = 40.dp
+private val RatingInnerCorner = 12.dp
+
 /**
- * 평가 버튼 묶음. 가장 자주 누를 "알아요"는 위에 한 줄을 다 차지하고,
- * 나머지 셋은 아래 한 줄에 나눠 앉아 큰 글꼴에서도 잘리지 않는다.
+ * 네 버튼이 가운데를 향한 모서리만 각지게 해 하나의 꽃잎 묶음처럼 모이게 한다.
+ * 누르면 각진 모서리까지 둥글게 morph되어 묶음에서 떨어져 나오는 느낌을 준다.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private fun ratingShapes(rating: Rating): ButtonShapes {
+    val round = RatingRoundCorner
+    val inner = RatingInnerCorner
+    val shape =
+        when (rating) {
+            Rating.Easy -> RoundedCornerShape(round, round, inner, round)
+            Rating.Good -> RoundedCornerShape(round, round, round, inner)
+            Rating.Hard -> RoundedCornerShape(round, inner, round, round)
+            Rating.Again -> RoundedCornerShape(inner, round, round, round)
+        }
+    return ButtonShapes(shape = shape, pressedShape = RoundedCornerShape(round))
+}
+
+/**
+ * 앱의 hero moment인 평가 버튼 묶음.
+ * 정답을 보면 네 버튼이 차례로 스프링을 타고 튀어나와 가운데로 모인 꽃잎 모양을 이룬다.
+ * 각 줄은 ButtonGroup이라 누른 버튼이 넓어지며 옆 버튼을 민다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -381,77 +443,71 @@ private fun RatingButtons(
     previews: Map<Rating, RatingPreview>,
     onRate: (Rating) -> Unit
 ) {
-    val height = 64.dp
-    val colors = MaterialTheme.colorScheme
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(
-            onClick = { onRate(Rating.Good) },
-            shapes = ButtonDefaults.shapesFor(height),
-            contentPadding = ButtonDefaults.contentPaddingFor(height),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = height)
-        ) {
-            Text(
-                text = Rating.Good.label,
-                style = MaterialTheme.typography.headlineSmallEmphasized,
-                fontWeight = FontWeight.Bold
-            )
-            previews[Rating.Good]?.let {
-                Text(
-                    text = formatInterval(it.interval),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 12.dp)
-                )
+    val interactions = remember { Rating.entries.associateWith { MutableInteractionSource() } }
+    val entrances = remember { Rating.entries.associateWith { Animatable(0f) } }
+    val popSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    LaunchedEffect(Unit) {
+        RatingRows.flatten().forEachIndexed { index, rating ->
+            launch {
+                delay(index * 50L)
+                entrances.getValue(rating).animateTo(1f, popSpec)
             }
         }
-        val others =
-            listOf(
-                Rating.Again to (colors.errorContainer to colors.onErrorContainer),
-                Rating.Hard to (colors.secondaryContainer to colors.onSecondaryContainer),
-                Rating.Easy to (colors.tertiaryContainer to colors.onTertiaryContainer)
-            )
-        val interactions = remember { others.associate { (rating, _) -> rating to MutableInteractionSource() } }
-        ButtonGroup(
-            overflowIndicator = {},
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            others.forEach { (rating, palette) ->
-                val (container: Color, content: Color) = palette
-                val interaction = interactions.getValue(rating)
-                customItem(
-                    buttonGroupContent = {
-                        Button(
-                            onClick = { onRate(rating) },
-                            shapes = ButtonDefaults.shapesFor(height),
-                            colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            interactionSource = interaction,
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .heightIn(min = height)
-                                    .animateWidth(interaction)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = rating.label,
-                                    style = MaterialTheme.typography.titleMediumEmphasized,
-                                    maxLines = 1
-                                )
-                                previews[rating]?.let {
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        RatingRows.forEach { row ->
+            ButtonGroup(
+                overflowIndicator = {},
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                row.forEach { rating ->
+                    val interaction = interactions.getValue(rating)
+                    val entrance = entrances.getValue(rating)
+                    customItem(
+                        buttonGroupContent = {
+                            val (container, content) = ratingColors(rating)
+                            Button(
+                                onClick = { onRate(rating) },
+                                shapes = ratingShapes(rating),
+                                colors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = container,
+                                        contentColor = content
+                                    ),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                interactionSource = interaction,
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .heightIn(min = RatingButtonHeight)
+                                        .animateWidth(interaction)
+                                        .graphicsLayer {
+                                            val progress = entrance.value
+                                            scaleX = 0.6f + 0.4f * progress
+                                            scaleY = 0.6f + 0.4f * progress
+                                            alpha = progress.coerceIn(0f, 1f)
+                                        }
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = formatInterval(it.interval),
-                                        style = MaterialTheme.typography.labelMedium,
+                                        text = rating.label,
+                                        style = MaterialTheme.typography.titleLargeEmphasized,
                                         maxLines = 1
                                     )
+                                    previews[rating]?.let {
+                                        Text(
+                                            text = formatInterval(it.interval),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = content.copy(alpha = 0.8f),
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    },
-                    menuContent = {}
-                )
+                        },
+                        menuContent = {}
+                    )
+                }
             }
         }
     }
