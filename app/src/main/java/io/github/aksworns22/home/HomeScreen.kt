@@ -6,7 +6,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
@@ -103,7 +102,6 @@ import io.github.aksworns22.R
 import io.github.aksworns22.deck.DeckAction
 import io.github.aksworns22.ui.highlight
 import io.github.aksworns22.ui.theme.WordletTheme
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -172,7 +170,6 @@ fun HomeScreen(
                 searching = searching,
                 interactionSource = searchInteractionSource,
                 onAddClick = onAddClick,
-                nudgeAddButton = words.isEmpty(),
                 tabsState = tabsScroll.state
             )
         },
@@ -252,7 +249,6 @@ private fun HomeTopBar(
     searching: Boolean,
     interactionSource: MutableInteractionSource,
     onAddClick: () -> Unit,
-    nudgeAddButton: Boolean,
     tabsState: TopAppBarState
 ) {
     val focusManager = LocalFocusManager.current
@@ -347,7 +343,6 @@ private fun HomeTopBar(
                 AddMenu(
                     onAddClick = onAddClick,
                     onImportClick = onImportClick,
-                    nudge = nudgeAddButton,
                     modifier = Modifier.padding(start = 12.dp)
                 )
             }
@@ -574,14 +569,12 @@ private fun DeckMenu(
 /**
  * 쿠키 모양 추가 버튼과, 누르면 그 아래로 펼쳐지는 메뉴.
  * 펼치면 쿠키가 스프링으로 돌며 primary 색으로 짙어지고 +가 ×로 바뀐다.
- * [nudge]가 true면 주기적으로 흔들려 시선을 끈다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AddMenu(
     onAddClick: () -> Unit,
     onImportClick: () -> Unit,
-    nudge: Boolean,
     modifier: Modifier = Modifier
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -607,20 +600,7 @@ private fun AddMenu(
         targetValue = if (expanded) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
         animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
     )
-    val nudgeRotation = remember { Animatable(0f) }
-    val nudgeSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
-    LaunchedEffect(nudge, expanded) {
-        if (!nudge || expanded) {
-            nudgeRotation.animateTo(0f, nudgeSpec)
-            return@LaunchedEffect
-        }
-        while (true) {
-            delay(1600)
-            nudgeRotation.animateTo(45f, nudgeSpec)
-            nudgeRotation.animateTo(0f, nudgeSpec)
-        }
-    }
-    val rotation = pressRotation + expandRotation + nudgeRotation.value
+    val rotation = pressRotation + expandRotation
     val shape = MaterialShapes.Cookie9Sided.toShape()
     Box(modifier = modifier) {
         Box(
