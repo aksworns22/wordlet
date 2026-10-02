@@ -14,23 +14,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.aksworns22.wordlet.home.Word
 import io.github.aksworns22.wordlet.ui.SheetButtons
 import io.github.aksworns22.wordlet.ui.SheetField
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** 홈 위로 올라오는 단어 추가 시트. 단어와 뜻만 적으면 바로 추가할 수 있다. */
@@ -92,15 +85,6 @@ private fun WordSheet(
     }
     val delete = { scope.launch { sheetState.hide() }.invokeOnCompletion { onDelete?.invoke() } }
 
-    val termFocusRequester = remember { FocusRequester() }
-    // 시트가 다 올라온 뒤에 키보드를 띄워, 키보드가 먼저 뜨고 시트가 뒤따라오지 않게 한다.
-    // 수정할 때는 내용을 먼저 보도록 키보드를 띄우지 않는다.
-    LaunchedEffect(Unit) {
-        if (initial != null) return@LaunchedEffect
-        snapshotFlow { sheetState.currentValue }.first { it == SheetValue.Expanded }
-        termFocusRequester.requestFocus()
-    }
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -119,8 +103,7 @@ private fun WordSheet(
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 placeholderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                 shape = RoundedCornerShape(20.dp),
-                autoCorrect = false,
-                modifier = Modifier.focusRequester(termFocusRequester)
+                autoCorrect = false
             )
             Spacer(Modifier.height(12.dp))
             // 뜻과 추가 설명은 단어를 설명하는 한 묶음이라 segmented 그룹으로 붙인다.
