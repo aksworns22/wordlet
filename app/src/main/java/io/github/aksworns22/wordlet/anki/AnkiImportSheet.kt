@@ -265,7 +265,7 @@ private fun FieldPicker(
                 Text(
                     text = role,
                     style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.width(32.dp)
+                    modifier = Modifier.width(64.dp)
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
