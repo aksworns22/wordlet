@@ -951,7 +951,7 @@ private fun EmptyResult(modifier: Modifier = Modifier) {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun HomeScreenPreview() {
-    WordletTheme(dynamicColor = false) {
+    WordletTheme {
         HomeScreen(
             decks = sampleDecks,
             deck = sampleDecks.first(),
@@ -969,7 +969,7 @@ private fun HomeScreenPreview() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun HomeScreenNoWordsPreview() {
-    WordletTheme(dynamicColor = false) {
+    WordletTheme {
         HomeScreen(
             decks = sampleDecks.take(1),
             deck = sampleDecks.first(),

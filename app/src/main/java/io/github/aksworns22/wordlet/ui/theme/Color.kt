@@ -4,8 +4,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-// 동적 색을 못 쓰는 Android 12 미만에서 쓰는 색 구성.
-// 기기의 동적 색과 같게 seed #6176AC를 Tonal Spot, 2025 spec으로 만든 값이다.
+// 앱 전체가 쓰는 색 구성.
+// seed #6176AC를 Tonal Spot, 2025 spec으로 만든 값이다.
 
 internal val LightColorScheme =
     lightColorScheme(

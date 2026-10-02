@@ -516,7 +516,7 @@ private fun RatingButtons(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun StudyScreenPreview() {
-    WordletTheme(dynamicColor = false) {
+    WordletTheme {
         StudyScreen(
             state = StudyState(sampleWords().first(), studied = 12),
             onReveal = {},
@@ -531,7 +531,7 @@ private fun StudyScreenPreview() {
 private fun StudyScreenRevealedPreview() {
     val word = sampleWords().first()
     val intervals = listOf(Duration.ofMinutes(1), Duration.ofMinutes(6), Duration.ofMinutes(10), Duration.ofDays(8))
-    WordletTheme(dynamicColor = false) {
+    WordletTheme {
         StudyScreen(
             state =
                 StudyState(

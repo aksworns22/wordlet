@@ -223,7 +223,7 @@ private fun DoneButton(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun StudyResultScreenPreview() {
-    WordletTheme(dynamicColor = false) {
+    WordletTheme {
         StudyResultScreen(
             studied = sampleWords().map { StudiedWord(it, Mastery.New) },
             onDone = {}
