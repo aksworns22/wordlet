@@ -7,13 +7,13 @@ plugins {
 }
 
 android {
-    namespace = "io.github.aksworns22"
+    namespace = "io.github.aksworns22.wordlet"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "io.github.aksworns22"
+        applicationId = "io.github.aksworns22.wordlet"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
