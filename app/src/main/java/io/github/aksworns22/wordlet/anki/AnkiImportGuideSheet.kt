@@ -75,7 +75,7 @@ fun AnkiImportGuideSheet(
             SourceCard(
                 icon = R.drawable.ic_public,
                 title = "AnkiWeb에서 찾기",
-                description = "덱을 열고 Download를 누르면 바로 가져와요",
+                description = "다운로드만 받으면 바로 가져와요",
                 onClick = { hideThen(onBrowse) },
                 shape = RoundedCornerShape(32.dp, 32.dp, 8.dp, 8.dp),
                 containerColor = MaterialTheme.colorScheme.primary,

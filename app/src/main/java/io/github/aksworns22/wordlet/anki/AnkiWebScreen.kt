@@ -118,7 +118,7 @@ fun AnkiWebScreen(
         topBar = {
             TopAppBar(
                 title = { Text("AnkiWeb 공유 덱") },
-                subtitle = { Text("덱을 열고 Download를 누르면 바로 가져와요") },
+                subtitle = { Text("다운로드만 받으면 바로 가져와요") },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(painter = painterResource(R.drawable.ic_close), contentDescription = "닫기")
