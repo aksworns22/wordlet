@@ -107,6 +107,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import io.github.aksworns22.R
 import io.github.aksworns22.deck.DeckAction
+import io.github.aksworns22.ui.RotatedShape
 import io.github.aksworns22.ui.highlight
 import io.github.aksworns22.ui.theme.WordletTheme
 import kotlinx.coroutines.launch
@@ -525,16 +526,20 @@ private fun DeckTab(
                         Modifier
                             .padding(start = 6.dp)
                             .size(28.dp)
-                            .graphicsLayer { rotationZ = enterSpin + menuSpin }
-                            .clip(MaterialShapes.Cookie4Sided.toShape())
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                RotatedShape(MaterialShapes.Cookie4Sided.toShape(), enterSpin + menuSpin)
+                            ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_expand_more),
                         contentDescription = "단어장 관리",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(18.dp)
+                        modifier =
+                            Modifier
+                                .size(18.dp)
+                                .graphicsLayer { rotationZ = enterSpin + menuSpin }
                     )
                 }
             }
@@ -618,16 +623,14 @@ private fun AddMenu(
         targetValue = if (expanded) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
         animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
     )
-    val rotation = pressRotation + expandRotation
-    val shape = MaterialShapes.Cookie9Sided.toShape()
+    val shape = RotatedShape(MaterialShapes.Cookie9Sided.toShape(), pressRotation + expandRotation)
     Box(modifier = modifier) {
         Box(
             modifier =
                 Modifier
                     .size(56.dp)
-                    .graphicsLayer { rotationZ = rotation }
+                    .background(containerColor, shape)
                     .clip(shape)
-                    .background(containerColor)
                     .clickable(
                         interactionSource = interactionSource,
                         indication = ripple(),
@@ -640,7 +643,7 @@ private fun AddMenu(
                 painter = painterResource(R.drawable.ic_add),
                 contentDescription = if (expanded) "메뉴 닫기" else "추가",
                 tint = contentColor,
-                modifier = Modifier.graphicsLayer { rotationZ = -rotation + iconRotation }
+                modifier = Modifier.graphicsLayer { rotationZ = iconRotation }
             )
         }
         PillMenuPopup(
@@ -845,10 +848,8 @@ private fun StudyBar(
             ScrollToTopButton(
                 onClick = onScrollToTopClick,
                 size = height,
-                modifier =
-                    Modifier
-                        .padding(start = 12.dp)
-                        .graphicsLayer { rotationZ = spin }
+                rotation = spin,
+                modifier = Modifier.padding(start = 12.dp)
             )
         }
     }
@@ -860,6 +861,7 @@ private fun StudyBar(
 private fun ScrollToTopButton(
     onClick: () -> Unit,
     size: Dp,
+    rotation: Float,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -868,6 +870,7 @@ private fun ScrollToTopButton(
         targetValue = if (pressed) 0.85f else 1f,
         animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
     )
+    val shape = RotatedShape(MaterialShapes.Arrow.toShape(), rotation)
     Box(
         modifier =
             modifier
@@ -876,8 +879,8 @@ private fun ScrollToTopButton(
                     scaleY = squash
                     scaleX = 2f - squash
                     transformOrigin = TransformOrigin(0.5f, 1f)
-                }.clip(MaterialShapes.Arrow.toShape())
-                .background(MaterialTheme.colorScheme.primary)
+                }.background(MaterialTheme.colorScheme.primary, shape)
+                .clip(shape)
                 .clickable(
                     interactionSource = interactionSource,
                     indication = ripple(),
@@ -889,7 +892,8 @@ private fun ScrollToTopButton(
         Icon(
             painter = painterResource(R.drawable.ic_arrow_upward),
             contentDescription = "맨 위로",
-            tint = MaterialTheme.colorScheme.onPrimary
+            tint = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.graphicsLayer { rotationZ = rotation }
         )
     }
 }
