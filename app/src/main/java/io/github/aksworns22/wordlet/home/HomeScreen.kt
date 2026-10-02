@@ -573,9 +573,8 @@ private fun DeckMenu(
                         label = "삭제",
                         icon = R.drawable.ic_delete,
                         onClick = { onAction(DeckAction.Delete) },
-                        // errorContainer는 분홍 계열 테마에서 단어 카드와 섞여 진한 error 색을 쓴다.
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
                     )
                 )
             }
