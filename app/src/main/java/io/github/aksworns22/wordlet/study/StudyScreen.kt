@@ -120,7 +120,7 @@ private fun StudyContent(
                     .weight(1f)
                     .padding(horizontal = 16.dp)
         ) { current ->
-            WordCard(state = current, onReveal = onReveal)
+            WordCard(state = current)
         }
         Box(
             modifier =
@@ -232,10 +232,7 @@ private fun StudiedCountBadge(count: Int) {
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun WordCard(
-    state: StudyState,
-    onReveal: () -> Unit
-) {
+private fun WordCard(state: StudyState) {
     val revealed = state.revealed
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
     val corner by animateDpAsState(if (revealed) 16.dp else 48.dp, spatial)
@@ -262,8 +259,6 @@ private fun WordCard(
         animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
     )
     Surface(
-        onClick = onReveal,
-        enabled = !revealed,
         shape = RoundedCornerShape(topStart = 48.dp, topEnd = corner, bottomEnd = 48.dp, bottomStart = corner),
         color = container,
         contentColor = content,
