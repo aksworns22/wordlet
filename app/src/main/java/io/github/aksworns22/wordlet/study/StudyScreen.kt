@@ -370,14 +370,14 @@ private fun RevealButton(onClick: () -> Unit) {
 private val Rating.label: String
     get() =
         when (this) {
-            Rating.Again -> "모름"
-            Rating.Hard -> "어려움"
-            Rating.Good -> "알맞음"
-            Rating.Easy -> "쉬움"
+            Rating.Again -> "몰라요"
+            Rating.Hard -> "어려워요"
+            Rating.Good -> "알아요"
+            Rating.Easy -> "쉬워요"
         }
 
 /**
- * 평가 버튼 묶음. 가장 자주 누를 "알맞음"은 위에 한 줄을 다 차지하고,
+ * 평가 버튼 묶음. 가장 자주 누를 "알아요"는 위에 한 줄을 다 차지하고,
  * 나머지 셋은 아래 한 줄에 나눠 앉아 큰 글꼴에서도 잘리지 않는다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

@@ -36,10 +36,10 @@ fun formatInterval(interval: Duration): String {
     val minutes = interval.toMinutes()
     val days = interval.toDays()
     return when {
-        minutes < 60 -> "${minutes.coerceAtLeast(1)}분"
-        days < 1 -> "${interval.toHours()}시간"
-        days < 30 -> "${days}일"
-        days < 365 -> "${days / 30}개월"
-        else -> "${days / 365}년"
+        minutes < 60 -> "${minutes.coerceAtLeast(1)}분 뒤"
+        days < 1 -> "${interval.toHours()}시간 뒤"
+        days < 30 -> "${days}일 뒤"
+        days < 365 -> "${days / 30}개월 뒤"
+        else -> "${days / 365}년 뒤"
     }
 }

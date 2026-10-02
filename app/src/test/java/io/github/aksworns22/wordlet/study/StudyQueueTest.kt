@@ -97,11 +97,11 @@ class StudyQueueTest {
 
     @Test
     fun formatsInterval() {
-        assertEquals("1분", formatInterval(Duration.ofSeconds(20)))
-        assertEquals("10분", formatInterval(Duration.ofMinutes(10)))
-        assertEquals("5시간", formatInterval(Duration.ofHours(5)))
-        assertEquals("3일", formatInterval(Duration.ofDays(3)))
-        assertEquals("2개월", formatInterval(Duration.ofDays(65)))
-        assertEquals("1년", formatInterval(Duration.ofDays(400)))
+        assertEquals("1분 뒤", formatInterval(Duration.ofSeconds(20)))
+        assertEquals("10분 뒤", formatInterval(Duration.ofMinutes(10)))
+        assertEquals("5시간 뒤", formatInterval(Duration.ofHours(5)))
+        assertEquals("3일 뒤", formatInterval(Duration.ofDays(3)))
+        assertEquals("2개월 뒤", formatInterval(Duration.ofDays(65)))
+        assertEquals("1년 뒤", formatInterval(Duration.ofDays(400)))
     }
 }
