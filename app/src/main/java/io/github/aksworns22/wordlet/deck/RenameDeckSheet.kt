@@ -64,6 +64,23 @@ fun RenameDeckSheet(
     }
 }
 
+/** [deck]은 남기고 그 안의 단어를 모두 지울지 묻는다. */
+@Composable
+fun ClearDeckDialog(
+    deck: Deck,
+    wordCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ConfirmDialog(
+        title = "단어장을 초기화할까요?",
+        text = "'${deck.name}' 단어장의 단어 ${wordCount}개가 모두 삭제돼요. 되돌릴 수 없어요.",
+        confirmLabel = "초기화",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss
+    )
+}
+
 /** [deck]과 그 안의 단어를 모두 지울지 묻는다. */
 @Composable
 fun DeleteDeckDialog(

@@ -420,8 +420,8 @@ private fun DeckTabs(
                 selected = deck.id == selected.id,
                 onSelect = { onSelect(deck) },
                 onAction = onAction,
-                // 기본 단어장은 단어를 넣을 곳으로 늘 남겨 둔다.
-                canDelete = deck.id != Deck.BASIC_ID,
+                // 기본 단어장은 단어를 넣을 곳으로 늘 남겨 두고, 지우는 대신 비운다.
+                isBasic = deck.id == Deck.BASIC_ID,
                 modifier = Modifier.animateItem()
             )
         }
@@ -444,7 +444,7 @@ private fun DeckTab(
     selected: Boolean,
     onSelect: () -> Unit,
     onAction: (DeckAction) -> Unit,
-    canDelete: Boolean,
+    isBasic: Boolean,
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -551,40 +551,38 @@ private fun DeckTab(
                 menuExpanded = false
                 onAction(it)
             },
-            canDelete = canDelete
+            isBasic = isBasic
         )
     }
 }
 
-/** 단어장 관리 메뉴. 탭 아래로 알약 항목이 튀어나오고, 되돌릴 수 없는 삭제는 error 색으로 구분한다. */
+/**
+ * 단어장 관리 메뉴. ▾ 쿠키가 있는 탭 오른쪽 끝에 맞춰 알약 항목이 튀어나오고,
+ * 되돌릴 수 없는 초기화와 삭제는 error 색으로 구분한다.
+ */
 @Composable
 private fun DeckMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onAction: (DeckAction) -> Unit,
-    canDelete: Boolean
+    isBasic: Boolean
 ) {
     val items =
-        buildList {
-            add(PillMenuItem("이름 바꾸기", R.drawable.ic_edit, { onAction(DeckAction.Rename) }))
-            if (canDelete) {
-                add(
-                    PillMenuItem(
-                        label = "삭제",
-                        icon = R.drawable.ic_delete,
-                        onClick = { onAction(DeckAction.Delete) },
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                )
-            }
-        }
+        listOf(
+            PillMenuItem("이름 바꾸기", R.drawable.ic_edit, { onAction(DeckAction.Rename) }),
+            PillMenuItem(
+                label = if (isBasic) "초기화" else "삭제",
+                icon = R.drawable.ic_delete,
+                onClick = { onAction(if (isBasic) DeckAction.Clear else DeckAction.Delete) },
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            )
+        )
     PillMenuPopup(
         expanded = expanded,
         onDismiss = onDismiss,
         items = items,
-        anchorHeight = DeckTabSelectedHeight,
-        alignStart = true
+        anchorHeight = DeckTabSelectedHeight
     )
 }
 

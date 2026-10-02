@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.aksworns22.wordlet.anki.AnkiImportHost
 import io.github.aksworns22.wordlet.anki.rememberAnkiImportState
+import io.github.aksworns22.wordlet.deck.ClearDeckDialog
 import io.github.aksworns22.wordlet.deck.DeckAction
 import io.github.aksworns22.wordlet.deck.DeleteDeckDialog
 import io.github.aksworns22.wordlet.deck.RenameDeckSheet
@@ -136,6 +137,16 @@ class MainActivity : ComponentActivity() {
                             deck = deck,
                             onRename = {
                                 viewModel.renameDeck(deck, it)
+                                closeDeckAction()
+                            },
+                            onDismiss = closeDeckAction
+                        )
+                    DeckAction.Clear ->
+                        ClearDeckDialog(
+                            deck = deck,
+                            wordCount = words.size,
+                            onConfirm = {
+                                viewModel.clearDeck(deck)
                                 closeDeckAction()
                             },
                             onDismiss = closeDeckAction

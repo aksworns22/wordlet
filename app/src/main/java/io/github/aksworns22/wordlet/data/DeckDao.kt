@@ -39,12 +39,13 @@ abstract class DeckDao {
     /** 단어장과 그 안의 단어를 함께 지운다. */
     @Transaction
     open suspend fun delete(id: Long) {
-        deleteWords(id)
+        clear(id)
         deleteDeck(id)
     }
 
+    /** [id] 단어장은 남기고 그 안의 단어를 모두 지운다. */
     @Query("DELETE FROM words WHERE deckId = :id")
-    protected abstract suspend fun deleteWords(id: Long)
+    abstract suspend fun clear(id: Long)
 
     @Query("DELETE FROM decks WHERE id = :id")
     protected abstract suspend fun deleteDeck(id: Long)

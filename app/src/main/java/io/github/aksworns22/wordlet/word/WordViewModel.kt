@@ -77,6 +77,11 @@ class WordViewModel(
         viewModelScope.launch { deckDao.reset(deck.id, new.state, new.step, new.due) }
     }
 
+    /** [deck]은 남기고 그 안의 단어를 모두 지운다. */
+    fun clearDeck(deck: Deck) {
+        viewModelScope.launch { deckDao.clear(deck.id) }
+    }
+
     /** [deck]을 그 안의 단어와 함께 지운다. */
     fun deleteDeck(deck: Deck) {
         viewModelScope.launch { deckDao.delete(deck.id) }
