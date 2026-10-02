@@ -43,7 +43,7 @@ private class DownloadException(
 ) : IOException(cause)
 
 /**
- * 덱 파일을 구하고 읽는 과정을 담는다. AnkiWeb 화면과 필드 짝짓기 시트는 [AnkiImportHost]가 그린다.
+ * 덱 파일을 구하고 읽는 과정을 담는다. 안내 시트, AnkiWeb 화면, 필드 짝짓기 시트는 [AnkiImportHost]가 그린다.
  * 덱은 앱 안에서 AnkiWeb으로 내려받거나 기기의 파일에서 고른다.
  */
 @Stable
@@ -52,6 +52,10 @@ class AnkiImportState internal constructor(
     private val scope: CoroutineScope
 ) {
     internal lateinit var picker: ManagedActivityResultLauncher<Array<String>, Uri?>
+
+    /** 덱을 어디서 구할지 고르는 안내 시트를 띄우는 중인지. */
+    internal var guiding by mutableStateOf(false)
+        private set
 
     /** AnkiWeb 공유 덱 화면을 띄우는 중인지. */
     internal var browsing by mutableStateOf(false)
@@ -71,7 +75,17 @@ class AnkiImportState internal constructor(
 
     private var reading: Job? = null
 
+    /** 덱을 어디서 구할지 고르는 안내 시트를 띄운다. */
+    fun start() {
+        guiding = true
+    }
+
+    internal fun closeGuide() {
+        guiding = false
+    }
+
     internal fun browse() {
+        guiding = false
         browsing = true
     }
 
@@ -79,7 +93,8 @@ class AnkiImportState internal constructor(
         browsing = false
     }
 
-    fun pickFile() {
+    internal fun pickFile() {
+        guiding = false
         // .apkg는 표준 MIME 타입이 없어 기기마다 다르게 잡히므로 모든 파일을 보여준다.
         picker.launch(arrayOf("*/*"))
     }
@@ -195,7 +210,7 @@ fun rememberAnkiImportState(): AnkiImportState {
 }
 
 /**
- * [state]에 따라 AnkiWeb 화면과 필드를 짝짓는 시트를 띄운다. [onImport]는 새 단어장 이름과 단어를 받는다.
+ * [state]에 따라 안내 시트, AnkiWeb 화면, 필드를 짝짓는 시트를 띄운다. [onImport]는 새 단어장 이름과 단어를 받는다.
  * AnkiWeb 화면이 앱 화면을 덮도록 화면들보다 나중에 그린다.
  */
 @Composable
@@ -203,6 +218,13 @@ fun AnkiImportHost(
     state: AnkiImportState,
     onImport: (String, List<AnkiWord>) -> Unit
 ) {
+    if (state.guiding) {
+        AnkiImportGuideSheet(
+            onBrowse = state::browse,
+            onPickFile = state::pickFile,
+            onDismiss = state::closeGuide
+        )
+    }
     val spec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
     AnimatedVisibility(
         visible = state.browsing,

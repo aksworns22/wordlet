@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
                                 words = words,
                                 onDeckSelect = { viewModel.selectDeck(it.id) },
                                 onDeckAction = { deckAction = it },
-                                onImportClick = ankiImport::pickFile,
+                                onImportClick = ankiImport::start,
                                 onAddClick = { adding = true },
                                 onWordClick = { editingId = it.card.id },
                                 onStudyClick = { screen = Screen.Study }
