@@ -15,6 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.google.firebase.Firebase
+import com.google.firebase.crashlytics.crashlytics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -64,6 +66,10 @@ class AnkiImportState internal constructor(
                     }
                 // 시트를 닫아 취소됐으면 실패로 알리지 않는다.
                 ensureActive()
+                // .apkg가 아닌 파일은 예상한 실패라 보내지 않는다.
+                result.exceptionOrNull()?.takeIf { it !is UnsupportedApkgException }?.let {
+                    Firebase.crashlytics.recordException(it)
+                }
                 val types = result.getOrNull()?.filter { it.notes.isNotEmpty() }
                 when {
                     types == null -> fail("Anki 덱 파일(.apkg)을 읽지 못했어요")
