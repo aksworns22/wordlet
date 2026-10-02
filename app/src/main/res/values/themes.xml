@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Wordlet" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- 첫 화면을 그리기 전까지 창 배경이 보이므로 앱 surface 색으로 맞춘다. -->
+    <style name="Theme.Wordlet" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/wordlet_surface</item>
+    </style>
+
+    <!-- 첫 데이터를 읽어 올 때까지 시스템 스플래시를 띄운다. -->
+    <style name="Theme.Wordlet.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/wordlet_surface</item>
+        <!-- 기본값인 런처 아이콘은 비트맵이라 스플래시 크기로 키우면 흐려진다. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/wordlet_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Wordlet</item>
+    </style>
 </resources>

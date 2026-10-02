@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,9 +26,9 @@ import androidx.compose.ui.AndroidComposeUiFlags
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
 import io.github.aksworns22.wordlet.anki.AnkiImportHost
 import io.github.aksworns22.wordlet.anki.rememberAnkiImportState
 import io.github.aksworns22.wordlet.deck.ClearDeckDialog
@@ -43,12 +44,19 @@ import io.github.aksworns22.wordlet.ui.theme.WordletTheme
 import io.github.aksworns22.wordlet.word.AddWordSheet
 import io.github.aksworns22.wordlet.word.EditWordSheet
 import io.github.aksworns22.wordlet.word.WordViewModel
+import kotlinx.coroutines.launch
 
 private enum class Screen { Home, Study, Result }
 
 class MainActivity : ComponentActivity() {
+    private val viewModel: WordViewModel by viewModels { WordViewModel.Factory }
+
     @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // DB에서 처음 읽어 올 때까지 스플래시를 띄워 둔다. 그 사이 빈 화면이 보이지 않는다.
+        installSplashScreen().setKeepOnScreenCondition {
+            viewModel.words.value == null || viewModel.decks.value == null
+        }
         super.onCreate(savedInstanceState)
         // 기본 스케줄러는 입력칸을 옮길 때 이전 칸의 키보드 숨김과 새 칸의 키보드 표시를 따로 처리해
         // 키보드가 잠깐 내려갔다 올라온다(삼성 키보드에서 확인). 프레임 단위로 묶어 처리하도록 끈다.
@@ -56,7 +64,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             WordletTheme {
-                val viewModel: WordViewModel = viewModel(factory = WordViewModel.Factory)
                 // DB에서 처음 읽어오기 전에 빈 홈이 잠깐 보이지 않도록 그리지 않는다.
                 val allWords = viewModel.words.collectAsStateWithLifecycle().value ?: return@WordletTheme
                 val decks = viewModel.decks.collectAsStateWithLifecycle().value ?: return@WordletTheme
