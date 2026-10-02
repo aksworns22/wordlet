@@ -116,6 +116,8 @@ fun SheetField(
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    // primaryContainer 같은 컨테이너에는 variant role이 없어 호출부에서 직접 넘긴다.
+    placeholderColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     singleLine: Boolean = true,
     autoCorrect: Boolean = true,
     outputTransformation: OutputTransformation? = null
@@ -147,7 +149,7 @@ fun SheetField(
                         Text(
                             text = placeholder,
                             style = style,
-                            color = contentColor.copy(alpha = 0.6f)
+                            color = placeholderColor
                         )
                     }
                     innerTextField()

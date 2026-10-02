@@ -196,7 +196,8 @@ private fun NoteTypeCard(
                     onSelect = { onMappingChange(mapping.copy(term = it)) },
                     shape = RoundedCornerShape(20.dp),
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    supportingColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
                 Spacer(Modifier.height(8.dp))
                 FieldPicker(
@@ -238,6 +239,8 @@ private fun FieldPicker(
     shape: Shape,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    // primaryContainer 같은 컨테이너에는 variant role이 없어 호출부에서 직접 넘긴다.
+    supportingColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     optional: Boolean = false
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -268,7 +271,7 @@ private fun FieldPicker(
                     Text(
                         text = selected?.let(fields::get) ?: if (optional) "없음" else "필드 선택",
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (selected == null) contentColor.copy(alpha = 0.6f) else contentColor,
+                        color = if (selected == null) supportingColor else contentColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -276,7 +279,7 @@ private fun FieldPicker(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.bodySmall,
-                            color = contentColor.copy(alpha = 0.7f),
+                            color = supportingColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

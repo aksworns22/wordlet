@@ -117,6 +117,7 @@ private fun WordSheet(
                 textStyle = MaterialTheme.typography.headlineSmallEmphasized,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                placeholderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                 shape = RoundedCornerShape(20.dp),
                 autoCorrect = false,
                 modifier = Modifier.focusRequester(termFocusRequester)

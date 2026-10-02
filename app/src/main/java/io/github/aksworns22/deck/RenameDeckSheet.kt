@@ -48,6 +48,7 @@ fun RenameDeckSheet(
                 textStyle = MaterialTheme.typography.headlineSmallEmphasized,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                placeholderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                 shape = RoundedCornerShape(20.dp)
             )
             Spacer(Modifier.height(16.dp))
