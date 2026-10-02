@@ -193,7 +193,12 @@ fun HomeScreen(
         }
     ) { innerPadding ->
         if (words.isEmpty()) {
-            NoWords(Modifier.padding(innerPadding))
+            // 학습하기 버튼이 내려가며 사라지는 동안에도 자리를 지키도록 그 높이는 빼지 않는다.
+            NoWords(
+                Modifier
+                    .padding(top = innerPadding.calculateTopPadding())
+                    .navigationBarsPadding()
+            )
             return@Scaffold
         }
         if (visibleWords.isEmpty()) {
