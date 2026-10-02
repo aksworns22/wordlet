@@ -22,6 +22,12 @@ private val Paperlogy =
 
 private fun TextStyle.paperlogy() = copy(fontFamily = Paperlogy)
 
+// 핵심 요소에 쓰는 Emphasized 스타일은 기본보다 두 단계 굵게 해 시선을 모은다.
+private fun TextStyle.emphasized() =
+    paperlogy().copy(
+        fontWeight = FontWeight((fontWeight ?: FontWeight.Normal).weight.plus(200).coerceAtMost(900))
+    )
+
 private val base = Typography()
 
 val Typography =
@@ -41,19 +47,19 @@ val Typography =
         labelLarge = base.labelLarge.paperlogy(),
         labelMedium = base.labelMedium.paperlogy(),
         labelSmall = base.labelSmall.paperlogy(),
-        displayLargeEmphasized = base.displayLargeEmphasized.paperlogy(),
-        displayMediumEmphasized = base.displayMediumEmphasized.paperlogy(),
-        displaySmallEmphasized = base.displaySmallEmphasized.paperlogy(),
-        headlineLargeEmphasized = base.headlineLargeEmphasized.paperlogy(),
-        headlineMediumEmphasized = base.headlineMediumEmphasized.paperlogy(),
-        headlineSmallEmphasized = base.headlineSmallEmphasized.paperlogy(),
-        titleLargeEmphasized = base.titleLargeEmphasized.paperlogy(),
-        titleMediumEmphasized = base.titleMediumEmphasized.paperlogy(),
-        titleSmallEmphasized = base.titleSmallEmphasized.paperlogy(),
-        bodyLargeEmphasized = base.bodyLargeEmphasized.paperlogy(),
-        bodyMediumEmphasized = base.bodyMediumEmphasized.paperlogy(),
-        bodySmallEmphasized = base.bodySmallEmphasized.paperlogy(),
-        labelLargeEmphasized = base.labelLargeEmphasized.paperlogy(),
-        labelMediumEmphasized = base.labelMediumEmphasized.paperlogy(),
-        labelSmallEmphasized = base.labelSmallEmphasized.paperlogy()
+        displayLargeEmphasized = base.displayLargeEmphasized.emphasized(),
+        displayMediumEmphasized = base.displayMediumEmphasized.emphasized(),
+        displaySmallEmphasized = base.displaySmallEmphasized.emphasized(),
+        headlineLargeEmphasized = base.headlineLargeEmphasized.emphasized(),
+        headlineMediumEmphasized = base.headlineMediumEmphasized.emphasized(),
+        headlineSmallEmphasized = base.headlineSmallEmphasized.emphasized(),
+        titleLargeEmphasized = base.titleLargeEmphasized.emphasized(),
+        titleMediumEmphasized = base.titleMediumEmphasized.emphasized(),
+        titleSmallEmphasized = base.titleSmallEmphasized.emphasized(),
+        bodyLargeEmphasized = base.bodyLargeEmphasized.emphasized(),
+        bodyMediumEmphasized = base.bodyMediumEmphasized.emphasized(),
+        bodySmallEmphasized = base.bodySmallEmphasized.emphasized(),
+        labelLargeEmphasized = base.labelLargeEmphasized.emphasized(),
+        labelMediumEmphasized = base.labelMediumEmphasized.emphasized(),
+        labelSmallEmphasized = base.labelSmallEmphasized.emphasized()
     )
