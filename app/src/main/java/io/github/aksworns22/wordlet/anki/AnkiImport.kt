@@ -5,7 +5,6 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.CookieManager
 import android.webkit.URLUtil
-import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -49,7 +49,8 @@ private class DownloadException(
 @Stable
 class AnkiImportState internal constructor(
     private val context: Context,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val snackbarHostState: SnackbarHostState
 ) {
     internal lateinit var picker: ManagedActivityResultLauncher<Array<String>, Uri?>
 
@@ -158,7 +159,7 @@ class AnkiImportState internal constructor(
 
     internal fun imported(count: Int) {
         close()
-        Toast.makeText(context, "단어 ${count}개를 가져왔어요", Toast.LENGTH_SHORT).show()
+        notify("단어 ${count}개를 가져왔어요")
     }
 
     internal fun close() {
@@ -193,15 +194,21 @@ class AnkiImportState internal constructor(
 
     private fun fail(message: String) {
         close()
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        notify(message)
+    }
+
+    /** 읽는 작업은 [close]로 취소되므로 스낵바는 따로 띄운다. 앞의 스낵바는 기다리지 않고 바로 바꾼다. */
+    private fun notify(message: String) {
+        snackbarHostState.currentSnackbarData?.dismiss()
+        scope.launch { snackbarHostState.showSnackbar(message) }
     }
 }
 
 @Composable
-fun rememberAnkiImportState(): AnkiImportState {
+fun rememberAnkiImportState(snackbarHostState: SnackbarHostState): AnkiImportState {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val state = remember { AnkiImportState(context, scope) }
+    val state = remember { AnkiImportState(context, scope, snackbarHostState) }
     state.picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) state.read(uri)

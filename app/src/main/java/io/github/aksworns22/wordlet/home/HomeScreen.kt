@@ -60,6 +60,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -125,6 +127,7 @@ fun HomeScreen(
     onAddClick: () -> Unit,
     onWordClick: (Word) -> Unit,
     onStudyClick: () -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -195,7 +198,8 @@ fun HomeScreen(
                     onScrollToTopClick = scrollToTop
                 )
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         if (words.isEmpty()) {
             // 학습하기 버튼이 내려가며 사라지는 동안에도 자리를 지키도록 그 높이는 빼지 않는다.
@@ -961,7 +965,8 @@ private fun HomeScreenPreview() {
             onImportClick = {},
             onAddClick = {},
             onWordClick = {},
-            onStudyClick = {}
+            onStudyClick = {},
+            snackbarHostState = remember { SnackbarHostState() }
         )
     }
 }
@@ -979,7 +984,8 @@ private fun HomeScreenNoWordsPreview() {
             onImportClick = {},
             onAddClick = {},
             onWordClick = {},
-            onStudyClick = {}
+            onStudyClick = {},
+            snackbarHostState = remember { SnackbarHostState() }
         )
     }
 }

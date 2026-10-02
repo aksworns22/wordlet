@@ -13,10 +13,12 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.AndroidComposeUiFlags
@@ -25,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import io.github.aksworns22.wordlet.anki.AnkiImportHost
 import io.github.aksworns22.wordlet.anki.rememberAnkiImportState
 import io.github.aksworns22.wordlet.deck.ClearDeckDialog
@@ -63,7 +66,9 @@ class MainActivity : ComponentActivity() {
                 val words = remember(allWords, deck) { allWords.filter { it.deckId == deck.id } }
                 var deckAction by rememberSaveable { mutableStateOf<DeckAction?>(null) }
                 var adding by rememberSaveable { mutableStateOf(false) }
-                val ankiImport = rememberAnkiImportState()
+                val snackbarHostState = remember { SnackbarHostState() }
+                val scope = rememberCoroutineScope()
+                val ankiImport = rememberAnkiImportState(snackbarHostState)
                 var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
                 val studyViewModel: StudyViewModel = viewModel(factory = StudyViewModel.Factory)
                 var screen by rememberSaveable { mutableStateOf(Screen.Home) }
@@ -114,7 +119,8 @@ class MainActivity : ComponentActivity() {
                                 onImportClick = ankiImport::start,
                                 onAddClick = { adding = true },
                                 onWordClick = { editingId = it.card.id },
-                                onStudyClick = { screen = Screen.Study }
+                                onStudyClick = { screen = Screen.Study },
+                                snackbarHostState = snackbarHostState
                             )
                     }
                 }
@@ -123,6 +129,8 @@ class MainActivity : ComponentActivity() {
                         onAdd = {
                             viewModel.add(it, deck.id)
                             adding = false
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            scope.launch { snackbarHostState.showSnackbar("단어를 추가했어요") }
                         },
                         onDismiss = { adding = false }
                     )
