@@ -123,7 +123,7 @@ private fun WordSheet(
                 modifier = Modifier.focusRequester(termFocusRequester)
             )
             Spacer(Modifier.height(12.dp))
-            // 뜻과 예문은 단어를 설명하는 한 묶음이라 segmented 그룹으로 붙인다.
+            // 뜻과 추가 설명은 단어를 설명하는 한 묶음이라 segmented 그룹으로 붙인다.
             SheetField(
                 state = meaning,
                 placeholder = "뜻",
@@ -132,10 +132,10 @@ private fun WordSheet(
             Spacer(Modifier.height(2.dp))
             SheetField(
                 state = example,
-                placeholder = "예문 (선택)",
+                placeholder = "추가 설명 (선택)",
                 shape = RoundedCornerShape(4.dp, 4.dp, 20.dp, 20.dp),
                 singleLine = false,
-                // 예문 속 단어가 눈에 띄도록 입력 중인 단어를 강조한다.
+                // 추가 설명 속 단어가 눈에 띄도록 입력 중인 단어를 강조한다.
                 outputTransformation =
                     HighlightTransformation(
                         keyword = term.text.trim().toString(),

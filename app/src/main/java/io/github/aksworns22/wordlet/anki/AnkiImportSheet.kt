@@ -70,7 +70,7 @@ private data class FieldMapping(
 }
 
 /**
- * Anki 덱의 필드를 단어·뜻·예문에 직접 짝지어 새 단어장으로 가져오는 시트.
+ * Anki 덱의 필드를 단어·뜻·추가 설명에 직접 짝지어 새 단어장으로 가져오는 시트.
  * 단어장 이름은 [initialName]에서 시작해 고칠 수 있다.
  * [noteTypes]가 null이면 덱을 읽는 중이다.
  */
@@ -187,7 +187,7 @@ private fun NoteTypeCard(
                 modifier = Modifier.padding(start = 4.dp)
             )
             Column(Modifier.padding(top = 12.dp)) {
-                // 단어는 단어 추가 시트처럼 primary로 강조하고, 뜻과 예문은 segmented 그룹으로 붙인다.
+                // 단어는 단어 추가 시트처럼 primary로 강조하고, 뜻과 추가 설명은 segmented 그룹으로 붙인다.
                 FieldPicker(
                     role = "단어",
                     fields = type.fields,
@@ -210,7 +210,7 @@ private fun NoteTypeCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 FieldPicker(
-                    role = "예문",
+                    role = "추가 설명",
                     fields = type.fields,
                     samples = samples,
                     selected = mapping.example,
