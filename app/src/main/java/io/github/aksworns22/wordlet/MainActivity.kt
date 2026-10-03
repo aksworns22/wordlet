@@ -135,11 +135,13 @@ class MainActivity : ComponentActivity() {
                 }
                 if (adding) {
                     AddWordSheet(
-                        onAdd = {
-                            viewModel.add(it, deck.id)
+                        decks = decks,
+                        initialDeck = deck,
+                        onAdd = { word, target ->
+                            viewModel.add(word, target.id)
                             adding = false
                             snackbarHostState.currentSnackbarData?.dismiss()
-                            scope.launch { snackbarHostState.showSnackbar("단어를 추가했어요") }
+                            scope.launch { snackbarHostState.showSnackbar("${target.name}에 추가했어요") }
                         },
                         onDismiss = { adding = false }
                     )
