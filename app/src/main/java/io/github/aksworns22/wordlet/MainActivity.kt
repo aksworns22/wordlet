@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
                 // 고른 단어장이 없으면 첫 단어장을 보여준다.
                 val deck = decks.find { it.id == deckId } ?: decks.first()
                 val words = remember(allWords, deck) { allWords.filter { it.deckId == deck.id } }
+                val wordCounts = remember(allWords) { allWords.groupingBy { it.deckId }.eachCount() }
                 var deckAction by rememberSaveable { mutableStateOf<DeckAction?>(null) }
                 var adding by rememberSaveable { mutableStateOf(false) }
                 val snackbarHostState = remember { SnackbarHostState() }
@@ -119,6 +120,7 @@ class MainActivity : ComponentActivity() {
                         Screen.Home ->
                             HomeScreen(
                                 decks = decks,
+                                wordCounts = wordCounts,
                                 deck = deck,
                                 words = words,
                                 onDeckSelect = { viewModel.selectDeck(it.id) },

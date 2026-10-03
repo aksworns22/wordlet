@@ -118,6 +118,7 @@ import kotlin.math.roundToInt
 @Composable
 fun HomeScreen(
     decks: List<Deck>,
+    wordCounts: Map<Long, Int>,
     deck: Deck,
     words: List<Word>,
     onDeckSelect: (Deck) -> Unit,
@@ -171,6 +172,7 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 decks = decks,
+                wordCounts = wordCounts,
                 deck = deck,
                 onDeckSelect = onDeckSelect,
                 onDeckAction = onDeckAction,
@@ -251,6 +253,7 @@ fun HomeScreen(
 @Composable
 private fun HomeTopBar(
     decks: List<Deck>,
+    wordCounts: Map<Long, Int>,
     deck: Deck,
     onDeckSelect: (Deck) -> Unit,
     onDeckAction: (DeckAction) -> Unit,
@@ -371,6 +374,7 @@ private fun HomeTopBar(
         }
         DeckTabs(
             decks = decks,
+            wordCounts = wordCounts,
             selected = deck,
             onSelect = onDeckSelect,
             onAction = onDeckAction,
@@ -398,6 +402,7 @@ private fun HomeTopBar(
 @Composable
 private fun DeckTabs(
     decks: List<Deck>,
+    wordCounts: Map<Long, Int>,
     selected: Deck,
     onSelect: (Deck) -> Unit,
     onAction: (DeckAction) -> Unit,
@@ -420,6 +425,7 @@ private fun DeckTabs(
         items(decks, key = { it.id }) { deck ->
             DeckTab(
                 deck = deck,
+                count = wordCounts[deck.id] ?: 0,
                 selected = deck.id == selected.id,
                 onSelect = { onSelect(deck) },
                 onAction = onAction,
@@ -444,6 +450,7 @@ private val DeckTabSelectedHeight = 40.dp
 @Composable
 private fun DeckTab(
     deck: Deck,
+    count: Int,
     selected: Boolean,
     onSelect: () -> Unit,
     onAction: (DeckAction) -> Unit,
@@ -506,6 +513,36 @@ private fun DeckTab(
                 color = contentColor,
                 maxLines = 1
             )
+            // 단어 수는 고른 단어장에만 펼쳐지고, 이름보다 작고 옅게 두어 이름이 주인공으로 남는다.
+            androidx.compose.animation.AnimatedVisibility(
+                visible = selected,
+                enter =
+                    expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                        fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                exit =
+                    shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()) +
+                        fadeOut(MaterialTheme.motionScheme.fastEffectsSpec())
+            ) {
+                // 바뀌면 숫자가 굴러 바뀐다.
+                val countSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
+                AnimatedContent(
+                    targetState = count,
+                    transitionSpec = {
+                        val direction = if (targetState > initialState) 1 else -1
+                        (slideInVertically(countSpec) { it * direction } + fadeIn())
+                            .togetherWith(slideOutVertically(countSpec) { -it * direction } + fadeOut())
+                    },
+                    // 이름과 섞이지 않도록 간격을 넉넉히 두어 떼어 놓는다.
+                    modifier = Modifier.padding(start = 10.dp)
+                ) { shown ->
+                    Text(
+                        text = "$shown 단어",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = contentColor.copy(alpha = 0.72f),
+                        maxLines = 1
+                    )
+                }
+            }
             androidx.compose.animation.AnimatedVisibility(
                 visible = selected,
                 enter =
@@ -953,6 +990,7 @@ private fun HomeScreenPreview() {
     WordletTheme {
         HomeScreen(
             decks = sampleDecks,
+            wordCounts = mapOf(Deck.BASIC_ID to sampleWords().size, 2L to 120, 3L to 48, 4L to 0),
             deck = sampleDecks.first(),
             words = sampleWords(),
             onDeckSelect = {},
@@ -972,6 +1010,7 @@ private fun HomeScreenNoWordsPreview() {
     WordletTheme {
         HomeScreen(
             decks = sampleDecks.take(1),
+            wordCounts = emptyMap(),
             deck = sampleDecks.first(),
             words = emptyList(),
             onDeckSelect = {},
