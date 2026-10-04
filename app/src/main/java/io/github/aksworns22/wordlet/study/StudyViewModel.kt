@@ -29,14 +29,22 @@ data class RatingPreview(
     val interval: Duration
 )
 
+/** 한 번의 학습에서 평가할 단어 수 */
+const val StudySessionSize = 10
+
 data class StudyState(
     val word: Word,
+    /** 이번 학습에서 평가할 단어 수. 단어장이 [StudySessionSize]보다 작으면 단어장의 단어 수다. */
+    val goal: Int,
     /** 정답을 보기 전에는 비어 있다. */
     val previews: Map<Rating, RatingPreview> = emptyMap(),
     /** 이번 학습에서 평가한 단어 수 */
     val studied: Int = 0
 ) {
     val revealed: Boolean get() = previews.isNotEmpty()
+
+    /** [goal]만큼 평가했으면 학습이 끝난다. */
+    val finished: Boolean get() = studied >= goal
 }
 
 /** 이번 학습에서 평가한 단어와, 처음 평가하기 전의 [Mastery] */
@@ -45,7 +53,7 @@ data class StudiedWord(
     val from: Mastery
 )
 
-/** 학습은 끝이 없고, 사용자가 끝내면 [stop]으로 끝난다. */
+/** [StudySessionSize]개를 평가하거나 사용자가 끝내면 [stop]으로 끝난다. */
 class StudyViewModel(
     private val dao: WordDao,
     private val scheduler: Scheduler = Scheduler(),
@@ -72,7 +80,8 @@ class StudyViewModel(
         loading =
             viewModelScope.launch {
                 words = dao.inDeck(deckId).map { it.toWord() }
-                _state.value = nextWord(words, clock())?.let(::StudyState)
+                val goal = minOf(StudySessionSize, words.size)
+                _state.value = nextWord(words, clock())?.let { StudyState(it, goal) }
             }
     }
 
@@ -91,16 +100,24 @@ class StudyViewModel(
 
     /**
      * [rating]으로 평가한 카드를 저장하고 다음 단어로 넘어간다.
+     * 목표만큼 평가했으면 다음 단어 없이 지금 단어에 머물러 학습이 끝났음을 알린다.
      * fuzz 때문에 다시 계산하면 보여준 간격과 달라지므로 미리 계산한 카드를 그대로 쓴다.
      */
     fun rate(rating: Rating) {
         val current = _state.value ?: return
+        if (current.finished) return
         val card = current.previews[rating]?.card ?: return
         val reviewed = current.word.copy(card = card)
         studiedFrom.putIfAbsent(card.id, current.word.card.mastery())
         words = words.map { if (it.card.id == card.id) reviewed else it }
         viewModelScope.launch { dao.update(reviewed.toEntity()) }
-        _state.value = nextWord(words, clock(), previousId = card.id)?.let { StudyState(it, studied = studiedFrom.size) }
+        val studied = studiedFrom.size
+        _state.value =
+            if (studied >= current.goal) {
+                current.copy(studied = studied)
+            } else {
+                nextWord(words, clock(), previousId = card.id)?.let { StudyState(it, current.goal, studied = studied) }
+            }
     }
 
     /** 학습을 끝내고, 이번에 평가한 단어들을 처음 평가한 순서대로 돌려준다. */

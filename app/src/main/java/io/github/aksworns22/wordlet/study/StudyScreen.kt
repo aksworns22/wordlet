@@ -43,6 +43,7 @@ import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -77,7 +78,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
 
-/** 단어를 하나씩 보여주고 평가받는 학습 화면. 끝내기를 누르거나 뒤로 나가면 학습이 끝난다. */
+/** 단어를 하나씩 보여주고 평가받는 학습 화면. 목표만큼 평가하거나, 끝내기를 누르거나, 뒤로 나가면 학습이 끝난다. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun StudyScreen(
@@ -88,6 +89,13 @@ fun StudyScreen(
     modifier: Modifier = Modifier
 ) {
     BackHandler(onBack = onFinish)
+    // 진행 표시가 끝까지 차는 모습을 보여준 뒤 결과로 넘어간다.
+    val finished = state?.finished == true
+    LaunchedEffect(finished) {
+        if (!finished) return@LaunchedEffect
+        delay(600)
+        onFinish()
+    }
     Surface(modifier = modifier.fillMaxSize()) {
         StudyContent(state, onReveal, onRate, onFinish)
     }
@@ -108,7 +116,7 @@ private fun StudyContent(
                 .statusBarsPadding()
                 .navigationBarsPadding()
     ) {
-        StudyTopBar(studied = state?.studied ?: 0, onFinish = onFinish)
+        StudyTopBar(studied = state?.studied ?: 0, goal = state?.goal ?: StudySessionSize, onFinish = onFinish)
         if (state == null) return@Column
         val slideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
         // 카드와 버튼을 한 장으로 묶어, 다음 단어는 오른쪽에서 통째로 밀려 들어오고
@@ -170,33 +178,47 @@ private fun StudyPage(
 }
 
 /**
- * 왼쪽엔 이번에 학습한 단어 수를, 오른쪽엔 학습을 끝내는 버튼을 둔다.
- * 남은 양이 아니라 쌓인 양만 보여줘 할 일처럼 느껴지지 않게 한다.
+ * 윗줄 왼쪽엔 이번에 학습한 단어 수를, 오른쪽엔 학습을 끝내는 버튼을 두고
+ * 그 아래에 이번 학습의 진행 상황을 물결치는 progress로 보여준다.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StudyTopBar(
     studied: Int,
+    goal: Int,
     onFinish: () -> Unit
 ) {
-    Row(
+    Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        StudiedCountBadge(studied)
-        Spacer(Modifier.weight(1f))
-        val height = 40.dp
-        FilledTonalButton(
-            onClick = onFinish,
-            shapes = ButtonDefaults.shapesFor(height),
-            contentPadding = ButtonDefaults.contentPaddingFor(height),
-            modifier = Modifier.heightIn(min = height)
-        ) {
-            Text(text = "끝내기", style = MaterialTheme.typography.titleSmallEmphasized)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StudiedCountBadge(studied)
+            Spacer(Modifier.weight(1f))
+            val height = 40.dp
+            FilledTonalButton(
+                onClick = onFinish,
+                shapes = ButtonDefaults.shapesFor(height),
+                contentPadding = ButtonDefaults.contentPaddingFor(height),
+                modifier = Modifier.heightIn(min = height)
+            ) {
+                Text(text = "끝내기", style = MaterialTheme.typography.titleSmallEmphasized)
+            }
         }
+        val progress by animateFloatAsState(
+            targetValue = if (goal == 0) 0f else studied.toFloat() / goal,
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()
+        )
+        LinearWavyProgressIndicator(
+            progress = { progress },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clearAndSetSemantics { contentDescription = "${goal}개 중 ${studied}개 학습" }
+        )
     }
 }
 
@@ -249,6 +271,7 @@ private fun StudiedCountBadge(count: Int) {
         }
     }
 }
+
 
 /**
  * 학습 화면의 hero. 정답을 보면 카드가 스프링으로 살짝 부풀며
@@ -518,7 +541,7 @@ private fun RatingButtons(
 private fun StudyScreenPreview() {
     WordletTheme {
         StudyScreen(
-            state = StudyState(sampleWords().first(), studied = 12),
+            state = StudyState(sampleWords().first(), goal = StudySessionSize, studied = 4),
             onReveal = {},
             onRate = {},
             onFinish = {}
@@ -536,6 +559,7 @@ private fun StudyScreenRevealedPreview() {
             state =
                 StudyState(
                     word = word,
+                    goal = StudySessionSize,
                     previews = Rating.entries.zip(intervals).associate { (r, d) -> r to RatingPreview(word.card, d) }
                 ),
             onReveal = {},
