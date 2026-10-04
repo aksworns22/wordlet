@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.aksworns22.wordlet.ui.SheetField
@@ -244,9 +245,14 @@ private fun FieldPicker(
     optional: Boolean = false
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it }
+        onExpandedChange = {
+            // 단어장 이름을 고치던 키보드가 메뉴를 가리지 않도록 내린다.
+            if (it) focusManager.clearFocus()
+            expanded = it
+        }
     ) {
         Surface(
             shape = shape,
