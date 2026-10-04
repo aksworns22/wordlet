@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.CookieManager
-import android.webkit.URLUtil
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,7 +65,7 @@ class AnkiImportState internal constructor(
     internal var open by mutableStateOf(false)
         private set
 
-    /** 새 단어장 이름의 처음 값. 덱 파일 이름을 쓴다. */
+    /** 새 단어장 이름의 처음 값. 덱 이름이나 파일 이름을 쓴다. */
     internal var deckName = ""
         private set
 
@@ -101,7 +100,7 @@ class AnkiImportState internal constructor(
     }
 
     internal fun read(uri: Uri) =
-        read(displayName(uri)) {
+        read(displayName(uri)?.substringBeforeLast('.')) {
             val input = context.contentResolver.openInputStream(uri) ?: throw UnsupportedApkgException()
             input.use { ApkgReader.read(it, context.cacheDir) }
         }
@@ -110,11 +109,10 @@ class AnkiImportState internal constructor(
     internal fun download(
         url: String,
         userAgent: String,
-        contentDisposition: String?,
-        mimeType: String?
+        name: String?
     ) {
         browsing = false
-        read(URLUtil.guessFileName(url, contentDisposition, mimeType)) {
+        read(name) {
             val file = File.createTempFile("download", ".apkg", context.cacheDir)
             try {
                 try {
@@ -129,14 +127,14 @@ class AnkiImportState internal constructor(
         }
     }
 
-    /** [fileName]의 덱을 [load]로 읽어 필드 짝짓기 시트에 띄운다. */
+    /** [name]이라는 덱을 [load]로 읽어 필드 짝짓기 시트에 띄운다. */
     private fun read(
-        fileName: String?,
+        name: String?,
         load: () -> List<AnkiNoteType>
     ) {
         open = true
         noteTypes = null
-        deckName = fileName?.substringBeforeLast('.')?.takeIf { it.isNotBlank() } ?: "Anki 덱"
+        deckName = name?.takeIf { it.isNotBlank() } ?: "Anki 덱"
         reading =
             scope.launch {
                 val result = runCatching { withContext(Dispatchers.IO) { load() } }

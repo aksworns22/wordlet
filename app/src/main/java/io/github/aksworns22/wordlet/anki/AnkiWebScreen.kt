@@ -3,6 +3,8 @@ package io.github.aksworns22.wordlet.anki
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
+import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -56,6 +58,12 @@ private const val SHARED_DECKS_URL = "https://ankiweb.net/shared/decks"
 /** 덱 상세 페이지의 경로. */
 private val DECK_PAGE_PATH = Regex("^/shared/info/\\d+/?$")
 
+/** 덱 페이지의 Download가 이동하는 경로. */
+private val DECK_DOWNLOAD_PATH = Regex("^/svc/shared/download-deck/\\d+$")
+
+/** AnkiWeb이 페이지 제목 뒤에 붙이는 꼬리. */
+private const val TITLE_SUFFIX = " - AnkiWeb"
+
 /**
  * 페이지의 Download 버튼을 대신 누른다. 화면이 아직 그려지는 중일 수 있어 버튼이 나올 때까지 잠깐 기다린다.
  * 문구가 바뀌어도 찾도록 덱 페이지의 큰 주 버튼으로도 찾는다.
@@ -75,14 +83,14 @@ private const val CLICK_DOWNLOAD_SCRIPT = """
 
 /**
  * 앱 안에서 AnkiWeb 공유 덱을 둘러보는 화면.
- * 덱 페이지에서 Download를 누르면 [onDownload]로 넘겨 앱이 직접 받는다. AnkiWeb 밖의 링크는 브라우저로 연다.
+ * 덱 페이지에서 Download를 누르면 [onDownload]로 덱 주소와 이름을 넘겨 앱이 직접 받는다. AnkiWeb 밖의 링크는 브라우저로 연다.
  * 덱 페이지에서는 Download를 찾지 않아도 되도록 아래에 가져오기 버튼을 띄운다.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AnkiWebScreen(
-    onDownload: (url: String, userAgent: String, contentDisposition: String?, mimeType: String?) -> Unit,
+    onDownload: (url: String, userAgent: String, deckName: String?) -> Unit,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
@@ -102,6 +110,15 @@ fun AnkiWebScreen(
                             view: WebView,
                             request: WebResourceRequest
                         ): Boolean {
+                            // WebView가 받기 시작하면 앱이 다시 받아 요청이 두 번 가므로, 보내기 전에 가로채 앱이 한 번만 받는다.
+                            if (isDeckDownload(request.url)) {
+                                currentOnDownload(
+                                    request.url.toString(),
+                                    view.settings.userAgentString,
+                                    view.title?.removeSuffix(TITLE_SUFFIX)?.takeIf { it.isNotBlank() }
+                                )
+                                return true
+                            }
                             // 다운로드는 다른 호스트로 리다이렉트될 수 있어 리다이렉트는 그대로 따라간다.
                             if (request.isRedirect || request.url.host?.endsWith("ankiweb.net") == true) return false
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
@@ -136,8 +153,10 @@ fun AnkiWebScreen(
                             progress = newProgress
                         }
                     }
+                // 가로채지 못한 다운로드는 파일 이름을 덱 이름으로 쓴다.
                 setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-                    currentOnDownload(url, userAgent, contentDisposition, mimeType)
+                    val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+                    currentOnDownload(url, userAgent, fileName.substringBeforeLast('.'))
                 }
                 loadUrl(SHARED_DECKS_URL)
             }
@@ -194,6 +213,8 @@ fun AnkiWebScreen(
         }
     }
 }
+
+private fun isDeckDownload(uri: Uri): Boolean = uri.host?.endsWith("ankiweb.net") == true && DECK_DOWNLOAD_PATH.matches(uri.path.orEmpty())
 
 private fun isDeckPage(url: String?): Boolean {
     val uri = url?.toUri() ?: return false
