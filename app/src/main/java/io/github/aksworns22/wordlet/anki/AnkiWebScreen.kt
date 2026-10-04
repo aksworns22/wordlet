@@ -11,18 +11,16 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -84,7 +82,7 @@ private const val CLICK_DOWNLOAD_SCRIPT = """
 /**
  * 앱 안에서 AnkiWeb 공유 덱을 둘러보는 화면.
  * 덱 페이지에서 Download를 누르면 [onDownload]로 덱 주소와 이름을 넘겨 앱이 직접 받는다. AnkiWeb 밖의 링크는 브라우저로 연다.
- * 덱 페이지에서는 Download를 찾지 않아도 되도록 아래에 가져오기 버튼을 띄운다.
+ * 덱 페이지에서는 Download를 찾지 않아도 되도록 페이지 위에 가져오기 버튼을 띄운다.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -179,15 +177,6 @@ fun AnkiWebScreen(
                     }
                 }
             )
-        },
-        bottomBar = {
-            AnimatedVisibility(
-                visible = onDeckPage,
-                enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(),
-                exit = shrinkVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeOut()
-            ) {
-                ImportBar(onClick = { webView.evaluateJavascript(CLICK_DOWNLOAD_SCRIPT, null) })
-            }
         }
     ) { innerPadding ->
         Box(
@@ -210,6 +199,14 @@ fun AnkiWebScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            AnimatedVisibility(
+                visible = onDeckPage,
+                enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeIn(),
+                exit = slideOutVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                ImportButton(onClick = { webView.evaluateJavascript(CLICK_DOWNLOAD_SCRIPT, null) })
+            }
         }
     }
 }
@@ -221,22 +218,22 @@ private fun isDeckPage(url: String?): Boolean {
     return uri.host?.endsWith("ankiweb.net") == true && DECK_PAGE_PATH.matches(uri.path.orEmpty())
 }
 
-/** 덱 페이지 아래에 붙는 가져오기 버튼. 학습하기 버튼과 같은 크기로 이 화면의 주인공이 된다. */
+/** 덱 페이지 위에 떠 있는 가져오기 버튼. 학습하기 버튼과 같은 크기로 이 화면의 주인공이 된다. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ImportBar(onClick: () -> Unit) {
+private fun ImportButton(onClick: () -> Unit) {
     val height = 64.dp
     Box(
         Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(16.dp)
     ) {
         Button(
             onClick = onClick,
             shapes = ButtonDefaults.shapesFor(height),
             contentPadding = ButtonDefaults.contentPaddingFor(height),
+            // 페이지 위에서 떠 보이도록 FAB만큼 그림자를 준다.
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp, pressedElevation = 6.dp),
             modifier =
                 Modifier
                     .fillMaxWidth()
