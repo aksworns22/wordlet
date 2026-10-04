@@ -94,7 +94,10 @@ import androidx.compose.ui.input.key.onInterceptKeyBeforeSoftKeyboard
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
@@ -461,6 +464,9 @@ private fun DeckTab(
     if (!selected) menuExpanded = false
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    // 탭이 화면 왼쪽 절반에 있으면 메뉴를 왼쪽 끝에 맞춰 화면 밖으로 밀려나지 않게 한다.
+    val windowWidth = LocalWindowInfo.current.containerSize.width
+    var centerX by remember { mutableStateOf(0f) }
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
     val height by animateDpAsState(if (selected) DeckTabSelectedHeight else DeckTabHeight, spatial)
     val corner by animateDpAsState(
@@ -484,7 +490,12 @@ private fun DeckTab(
         targetValue = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
         animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
     )
-    Box(modifier = modifier) {
+    Box(
+        modifier =
+            modifier.onGloballyPositioned {
+                centerX = it.positionInWindow().x + it.size.width / 2f
+            }
+    ) {
         Row(
             modifier =
                 Modifier
@@ -591,13 +602,14 @@ private fun DeckTab(
                 menuExpanded = false
                 onAction(it)
             },
-            isBasic = isBasic
+            isBasic = isBasic,
+            alignStart = centerX < windowWidth / 2f
         )
     }
 }
 
 /**
- * 단어장 관리 메뉴. ▾ 쿠키가 있는 탭 오른쪽 끝에 맞춰 알약 항목이 튀어나오고,
+ * 단어장 관리 메뉴. [alignStart]면 탭 왼쪽 끝에, 아니면 ▾ 쿠키가 있는 오른쪽 끝에 맞춰 알약 항목이 튀어나오고,
  * 되돌릴 수 없는 초기화와 삭제는 error 색으로 구분한다.
  */
 @Composable
@@ -605,7 +617,8 @@ private fun DeckMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onAction: (DeckAction) -> Unit,
-    isBasic: Boolean
+    isBasic: Boolean,
+    alignStart: Boolean
 ) {
     val items =
         listOf(
@@ -621,7 +634,8 @@ private fun DeckMenu(
         expanded = expanded,
         onDismiss = onDismiss,
         items = items,
-        anchorHeight = DeckTabSelectedHeight
+        anchorHeight = DeckTabSelectedHeight,
+        alignStart = alignStart
     )
 }
 
