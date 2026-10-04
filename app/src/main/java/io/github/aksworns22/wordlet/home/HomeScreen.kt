@@ -591,13 +591,15 @@ private fun DeckTab(
                 menuExpanded = false
                 onAction(it)
             },
-            isBasic = isBasic
+            isBasic = isBasic,
+            // 기본 단어장은 맨 왼쪽에 있어 오른쪽 끝에 맞추면 메뉴가 화면 밖으로 밀려나므로 왼쪽 끝에 맞춘다.
+            alignStart = isBasic
         )
     }
 }
 
 /**
- * 단어장 관리 메뉴. ▾ 쿠키가 있는 탭 오른쪽 끝에 맞춰 알약 항목이 튀어나오고,
+ * 단어장 관리 메뉴. [alignStart]면 탭 왼쪽 끝에, 아니면 ▾ 쿠키가 있는 오른쪽 끝에 맞춰 알약 항목이 튀어나오고,
  * 되돌릴 수 없는 초기화와 삭제는 error 색으로 구분한다.
  */
 @Composable
@@ -605,7 +607,8 @@ private fun DeckMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onAction: (DeckAction) -> Unit,
-    isBasic: Boolean
+    isBasic: Boolean,
+    alignStart: Boolean
 ) {
     val items =
         listOf(
@@ -621,7 +624,8 @@ private fun DeckMenu(
         expanded = expanded,
         onDismiss = onDismiss,
         items = items,
-        anchorHeight = DeckTabSelectedHeight
+        anchorHeight = DeckTabSelectedHeight,
+        alignStart = alignStart
     )
 }
 
