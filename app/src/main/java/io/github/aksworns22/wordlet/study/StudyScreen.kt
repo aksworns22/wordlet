@@ -116,7 +116,7 @@ private fun StudyContent(
                 .statusBarsPadding()
                 .navigationBarsPadding()
     ) {
-        StudyTopBar(studied = state?.studied ?: 0, goal = state?.goal ?: StudySessionSize, onFinish = onFinish)
+        StudyTopBar(studied = state?.studied ?: 0, goal = state?.goal ?: STUDY_SESSION_SIZE, onFinish = onFinish)
         if (state == null) return@Column
         val slideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
         // 카드와 버튼을 한 장으로 묶어, 다음 단어는 오른쪽에서 통째로 밀려 들어오고
@@ -271,7 +271,6 @@ private fun StudiedCountBadge(count: Int) {
         }
     }
 }
-
 
 /**
  * 학습 화면의 hero. 정답을 보면 카드가 스프링으로 살짝 부풀며
@@ -541,7 +540,7 @@ private fun RatingButtons(
 private fun StudyScreenPreview() {
     WordletTheme {
         StudyScreen(
-            state = StudyState(sampleWords().first(), goal = StudySessionSize, studied = 4),
+            state = StudyState(sampleWords().first(), goal = STUDY_SESSION_SIZE, studied = 4),
             onReveal = {},
             onRate = {},
             onFinish = {}
@@ -559,7 +558,7 @@ private fun StudyScreenRevealedPreview() {
             state =
                 StudyState(
                     word = word,
-                    goal = StudySessionSize,
+                    goal = STUDY_SESSION_SIZE,
                     previews = Rating.entries.zip(intervals).associate { (r, d) -> r to RatingPreview(word.card, d) }
                 ),
             onReveal = {},

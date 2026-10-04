@@ -30,11 +30,11 @@ data class RatingPreview(
 )
 
 /** 한 번의 학습에서 평가할 단어 수 */
-const val StudySessionSize = 10
+const val STUDY_SESSION_SIZE = 10
 
 data class StudyState(
     val word: Word,
-    /** 이번 학습에서 평가할 단어 수. 단어장이 [StudySessionSize]보다 작으면 단어장의 단어 수다. */
+    /** 이번 학습에서 평가할 단어 수. 단어장이 [STUDY_SESSION_SIZE]보다 작으면 단어장의 단어 수다. */
     val goal: Int,
     /** 정답을 보기 전에는 비어 있다. */
     val previews: Map<Rating, RatingPreview> = emptyMap(),
@@ -53,7 +53,7 @@ data class StudiedWord(
     val from: Mastery
 )
 
-/** [StudySessionSize]개를 평가하거나 사용자가 끝내면 [stop]으로 끝난다. */
+/** [STUDY_SESSION_SIZE]개를 평가하거나 사용자가 끝내면 [stop]으로 끝난다. */
 class StudyViewModel(
     private val dao: WordDao,
     private val scheduler: Scheduler = Scheduler(),
@@ -80,7 +80,7 @@ class StudyViewModel(
         loading =
             viewModelScope.launch {
                 words = dao.inDeck(deckId).map { it.toWord() }
-                val goal = minOf(StudySessionSize, words.size)
+                val goal = minOf(STUDY_SESSION_SIZE, words.size)
                 _state.value = nextWord(words, clock())?.let { StudyState(it, goal) }
             }
     }
