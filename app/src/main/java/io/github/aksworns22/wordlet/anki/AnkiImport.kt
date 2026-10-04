@@ -146,11 +146,14 @@ class AnkiImportState internal constructor(
                     Firebase.crashlytics.recordException(it)
                 }
                 val types = result.getOrNull()?.filter { it.notes.isNotEmpty() }
+                // 소리·이미지만 든 필드는 빠지므로 필드가 남지 않은 노트 타입은 띄우지 않는다.
+                val usable = types?.filter { it.fields.isNotEmpty() }
                 when {
                     error is DownloadException -> fail("덱을 내려받지 못했어요. 인터넷 연결을 확인해 주세요")
                     types == null -> fail("Anki 덱 파일(.apkg)을 읽지 못했어요")
                     types.isEmpty() -> fail("덱에 가져올 노트가 없어요")
-                    else -> noteTypes = types
+                    usable.isNullOrEmpty() -> fail("단어장으로 만들 수 없어요")
+                    else -> noteTypes = usable
                 }
             }
     }

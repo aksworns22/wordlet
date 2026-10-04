@@ -7,12 +7,21 @@ import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipInputStream
 
-/** 같은 필드 구성을 가진 Anki 노트 묶음. [notes]의 각 값은 [fields] 순서를 따르며 [cleanField]로 정리돼 있다. */
+/**
+ * 같은 필드 구성을 가진 Anki 노트 묶음. [notes]의 각 값은 [fields] 순서를 따르며 [cleanField]로 정리돼 있다.
+ * 내용이 있는 필드만 담는다.
+ */
 data class AnkiNoteType(
     val name: String,
     val fields: List<String>,
     val notes: List<List<String>>
 )
+
+/** 모든 노트에서 비어 있는 필드(소리·이미지만 든 필드 등)를 뺀다. */
+fun AnkiNoteType.withoutEmptyFields(): AnkiNoteType {
+    val kept = fields.indices.filter { i -> notes.any { it[i].isNotBlank() } }
+    return copy(fields = kept.map(fields::get), notes = notes.map { note -> kept.map(note::get) })
+}
 
 class UnsupportedApkgException : Exception()
 
@@ -65,7 +74,7 @@ object ApkgReader {
                         fields = fields,
                         // 필드가 노트 타입보다 적게 저장된 노트도 있어 빈 값으로 채운다.
                         notes = rows.map { row -> fields.indices.map { i -> cleanField(row.getOrElse(i) { "" }) } }
-                    )
+                    ).withoutEmptyFields()
                 }
         }
     }
