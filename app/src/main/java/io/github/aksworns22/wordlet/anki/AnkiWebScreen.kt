@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
@@ -47,6 +48,7 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
@@ -108,22 +110,46 @@ private const val WATCH_LIMIT_SCRIPT = """
   new MutationObserver(function(mutations) {
     mutations.forEach(function(mutation) {
       mutation.addedNodes.forEach(function(node) {
-        if (/^\s*Error:/.test(node.textContent || '')) WordletBridge.limited();
+        var text = node.textContent || '';
+        if (/^\s*Error:/.test(text)) WordletBridge.limited(text);
       });
     });
   }).observe(document.body, { childList: true, subtree: true });
 })();
 """
 
+/** 로그인 페이지. 가입, 비밀번호 찾기 같은 계정 페이지는 모두 [ACCOUNT_PATH] 아래에 있다. */
+private const val LOGIN_URL = "https://ankiweb.net/account/login"
+
+private const val ACCOUNT_PATH = "/account/"
+
+/** AnkiWeb이 로그인했는지 볼 때 찾는 쿠키. AnkiWeb 자신도 이 쿠키로 로그인 여부를 본다. */
+private const val AUTH_COOKIE = "has_auth"
+
+private fun isLoggedIn(): Boolean = CookieManager.getInstance().getCookie(SHARED_DECKS_URL)?.contains(AUTH_COOKIE) == true
+
+/** 로그인하지 않으면 검색을 두 번만 하게 해 주며 띄우는 문구. "Please log in to perform more searches." */
+private val LOGIN_REQUIRED_MESSAGE = Regex("log ?in", RegexOption.IGNORE_CASE)
+
+/** AnkiWeb 공유 덱 한도의 종류. */
+private enum class Limit {
+    /** 로그인하지 않아 검색을 두 번만 할 수 있다. 로그인하면 풀린다. */
+    LoginRequired,
+
+    /** 로그인해도 하루에 검색을 25번쯤만 할 수 있다. 하루 지나야 풀린다. 모르는 오류도 여기로 본다. */
+    Daily
+}
+
 /** 페이지의 스크립트가 앱을 부르는 통로. WebView의 스레드에서 불리므로 [onLimited]는 메인 스레드로 넘겨 부른다. */
 private class LimitBridge(
-    private val onLimited: () -> Unit
+    private val onLimited: (Limit) -> Unit
 ) {
     private val main = Handler(Looper.getMainLooper())
 
     @JavascriptInterface
-    fun limited() {
-        main.post(onLimited)
+    fun limited(message: String) {
+        val limit = if (LOGIN_REQUIRED_MESSAGE.containsMatchIn(message)) Limit.LoginRequired else Limit.Daily
+        main.post { onLimited(limit) }
     }
 }
 
@@ -131,7 +157,7 @@ private class LimitBridge(
  * 앱 안에서 AnkiWeb 공유 덱을 둘러보는 화면.
  * 덱 페이지에서 Download를 누르면 [onDownload]로 덱 주소와 이름을 넘겨 앱이 직접 받는다. AnkiWeb 밖의 링크는 브라우저로 연다.
  * 덱 페이지에서는 Download를 찾지 않아도 되도록 페이지 위에 가져오기 버튼을 띄운다.
- * 공유 덱 한도에 걸리면 페이지를 오류 화면으로 덮고 홈으로 돌려보낸다.
+ * 공유 덱 한도에 걸리면 페이지를 안내 화면으로 덮는다. 로그인하면 풀리는 한도면 앱 안에서 로그인하고 공유 덱으로 돌아오게 한다.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -145,14 +171,31 @@ fun AnkiWebScreen(
     var progress by remember { mutableIntStateOf(0) }
     var canGoBack by remember { mutableStateOf(false) }
     var onDeckPage by remember { mutableStateOf(false) }
-    var limited by remember { mutableStateOf(false) }
+    var limit by remember { mutableStateOf<Limit?>(null) }
+    var loggingIn by remember { mutableStateOf(false) }
+    var loggedIn by remember { mutableStateOf(isLoggedIn()) }
+    // 로그인을 마치고 공유 덱으로 돌아온 뒤 뒤로 가기가 로그인 페이지로 가지 않도록 기록을 지운다.
+    var clearHistory by remember { mutableStateOf(false) }
+
+    /** 로그인 중에 계정 페이지를 벗어나면 로그인을 마친 것으로 보고 공유 덱으로 돌아간다. */
+    fun returnIfLoggedIn(
+        view: WebView,
+        url: String?
+    ) {
+        val path = url?.toUri()?.path.orEmpty()
+        if (!loggingIn || path.startsWith(ACCOUNT_PATH)) return
+        loggingIn = false
+        clearHistory = true
+        view.loadUrl(SHARED_DECKS_URL)
+    }
+
     val webView =
         remember {
             WebView(context).apply {
                 // AnkiWeb은 자바스크립트로 그리는 SvelteKit 앱이다.
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
-                addJavascriptInterface(LimitBridge { limited = true }, "WordletBridge")
+                addJavascriptInterface(LimitBridge { limit = it }, "WordletBridge")
                 webViewClient =
                     object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(
@@ -181,12 +224,19 @@ fun AnkiWebScreen(
                         ) {
                             canGoBack = view.canGoBack()
                             onDeckPage = isDeckPage(url)
+                            returnIfLoggedIn(view, url)
                         }
 
                         override fun onPageFinished(
                             view: WebView,
                             url: String?
                         ) {
+                            if (clearHistory && url?.startsWith(SHARED_DECKS_URL) == true) {
+                                clearHistory = false
+                                view.clearHistory()
+                                canGoBack = false
+                            }
+                            loggedIn = isLoggedIn()
                             view.evaluateJavascript(WATCH_LIMIT_SCRIPT, null)
                         }
 
@@ -198,6 +248,8 @@ fun AnkiWebScreen(
                         ) {
                             canGoBack = view.canGoBack()
                             onDeckPage = isDeckPage(url)
+                            loggedIn = isLoggedIn()
+                            returnIfLoggedIn(view, url)
                         }
                     }
                 webChromeClient =
@@ -220,18 +272,36 @@ fun AnkiWebScreen(
     DisposableEffect(webView) {
         onDispose { webView.destroy() }
     }
+
+    // 로그인한 채로 로그인 페이지를 열면 AnkiWeb이 로그아웃시킬 수 있어, 로그인하지 않았을 때만 부른다.
+    fun startLogin() {
+        limit = null
+        loggingIn = true
+        webView.loadUrl(LOGIN_URL)
+    }
     BackHandler {
-        if (canGoBack && !limited) webView.goBack() else onClose()
+        if (canGoBack && limit == null) webView.goBack() else onClose()
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("AnkiWeb 공유 덱") },
-                subtitle = { Text("다운로드만 받으면 바로 가져와요") },
+                subtitle = { Text(if (loggingIn) "로그인하면 더 찾을 수 있어요" else "다운로드만 받으면 바로 가져와요") },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(painter = painterResource(R.drawable.ic_close), contentDescription = "닫기")
+                    }
+                },
+                actions = {
+                    AnimatedVisibility(
+                        visible = !loggedIn && !loggingIn && limit == null,
+                        enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                        exit = fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec())
+                    ) {
+                        TextButton(onClick = ::startLogin) {
+                            Text("로그인")
+                        }
                     }
                 }
             )
@@ -258,19 +328,26 @@ fun AnkiWebScreen(
                 )
             }
             AnimatedVisibility(
-                visible = onDeckPage && !limited,
+                visible = onDeckPage && limit == null,
                 enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeIn(),
                 exit = slideOutVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 ImportButton(onClick = { webView.evaluateJavascript(CLICK_DOWNLOAD_SCRIPT, null) })
             }
+            // 사라지는 동안에도 같은 안내를 보이도록 마지막 한도를 기억한다.
+            var shownLimit by remember { mutableStateOf(Limit.Daily) }
+            limit?.let { shownLimit = it }
             AnimatedVisibility(
-                visible = limited,
+                visible = limit != null,
                 enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
                 exit = fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec())
             ) {
-                LimitScreen(onHome = onClose)
+                LimitScreen(
+                    limit = shownLimit,
+                    onLogin = ::startLogin,
+                    onHome = onClose
+                )
             }
         }
     }
@@ -313,12 +390,20 @@ private fun ImportButton(onClick: () -> Unit) {
     }
 }
 
-/** 공유 덱 한도에 걸렸을 때 페이지를 덮는 오류 화면. 할 수 있는 일은 홈으로 돌아가는 것뿐이다. */
+/**
+ * 공유 덱 한도에 걸렸을 때 페이지를 덮는 안내 화면.
+ * 로그인하면 풀리는 한도면 로그인을 주 행동으로 두고, 하루 지나야 풀리는 한도면 홈으로 돌아가는 것뿐이다.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AnimatedVisibilityScope.LimitScreen(onHome: () -> Unit) {
+private fun AnimatedVisibilityScope.LimitScreen(
+    limit: Limit,
+    onLogin: () -> Unit,
+    onHome: () -> Unit
+) {
     val colors = MaterialTheme.colorScheme
     val height = 64.dp
+    val loginRequired = limit == Limit.LoginRequired
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier =
@@ -342,43 +427,78 @@ private fun AnimatedVisibilityScope.LimitScreen(onHome: () -> Unit) {
                             ),
                         exit = ExitTransition.None
                     ).size(120.dp)
-                    .background(colors.errorContainer, MaterialShapes.SoftBurst.toShape())
+                    .background(
+                        // 로그인은 막힌 게 아니라 다음 단계라 오류 색을 쓰지 않는다.
+                        if (loginRequired) colors.primaryContainer else colors.errorContainer,
+                        MaterialShapes.SoftBurst.toShape()
+                    )
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_priority_high),
                 contentDescription = null,
-                tint = colors.onErrorContainer,
+                tint = if (loginRequired) colors.onPrimaryContainer else colors.onErrorContainer,
                 modifier = Modifier.size(48.dp)
             )
         }
         Spacer(Modifier.height(24.dp))
         Text(
-            text = "AnkiWeb 공유 덱 한도에 걸렸어요",
+            text = if (loginRequired) "로그인하면 계속 찾을 수 있어요" else "오늘 찾을 수 있는 만큼 다 찾았어요",
             style = MaterialTheme.typography.headlineSmallEmphasized,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "AnkiWeb은 wordlet과 별개인 사이트라 앱에서 한도를 풀 수 없어요. 잠시 뒤에 다시 찾아 주세요.",
+            text =
+                if (loginRequired) {
+                    "wordlet이 아닌 AnkiWeb의 정책이에요. AnkiWeb은 wordlet과 별개인 서비스라, 로그인하지 않으면 검색을 두 번만 할 수 있게 막아 둬요. " +
+                        "무료 계정으로 로그인하면 하루 25번쯤 찾을 수 있어요."
+                } else {
+                    "wordlet이 아닌 AnkiWeb의 정책이에요. AnkiWeb은 wordlet과 별개인 서비스라, 하루에 검색을 25번쯤만 할 수 있게 막아 두고 앱에서는 풀 수 없어요. " +
+                        "하루 지나면 다시 찾을 수 있어요."
+                },
             style = MaterialTheme.typography.bodyLarge,
             color = colors.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.weight(1f))
-        Button(
-            onClick = onHome,
-            shapes = ButtonDefaults.shapesFor(height),
-            contentPadding = ButtonDefaults.contentPaddingFor(height),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = height)
-        ) {
-            Text(
-                text = "홈으로 돌아가기",
-                style = MaterialTheme.typography.headlineSmallEmphasized,
-                fontWeight = FontWeight.Bold
-            )
+        if (loginRequired) {
+            Button(
+                onClick = onLogin,
+                shapes = ButtonDefaults.shapesFor(height),
+                contentPadding = ButtonDefaults.contentPaddingFor(height),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = height)
+            ) {
+                Text(
+                    text = "AnkiWeb에 로그인하기",
+                    style = MaterialTheme.typography.headlineSmallEmphasized,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            TextButton(
+                onClick = onHome,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("홈으로 돌아가기")
+            }
+        } else {
+            Button(
+                onClick = onHome,
+                shapes = ButtonDefaults.shapesFor(height),
+                contentPadding = ButtonDefaults.contentPaddingFor(height),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = height)
+            ) {
+                Text(
+                    text = "홈으로 돌아가기",
+                    style = MaterialTheme.typography.headlineSmallEmphasized,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
