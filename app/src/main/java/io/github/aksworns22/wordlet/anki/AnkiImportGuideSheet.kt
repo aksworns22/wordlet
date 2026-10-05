@@ -67,7 +67,7 @@ fun AnkiImportGuideSheet(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Anki 덱 파일(.apkg)로 단어장을 만들 수 있어요. AnkiWeb에는 다른 사람들이 만들어 공유한 덱이 많아요.",
+                text = "단어를 하나하나 입력할 필요 없어요. 이미 만들어진 Anki 덱을 그대로 가져와요.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp)
