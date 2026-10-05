@@ -62,13 +62,8 @@ private val steps =
     listOf(
         OnboardingStep(
             screenshot = R.drawable.onboarding_browse,
-            title = "AnkiWeb에서 단어장 찾기",
-            description = "다른 사람들이 만들어 공유한 덱을 둘러봐요"
-        ),
-        OnboardingStep(
-            screenshot = R.drawable.onboarding_import,
-            title = "이 단어장 가져오기 누르기",
-            description = "덱 페이지 아래에 뜨는 버튼을 누르면 바로 받아와요"
+            title = "AnkiWeb에서 덱 받기",
+            description = "Anki 덱을 둘러보고, 마음에 드는 덱을 다운로드해요"
         ),
         OnboardingStep(
             screenshot = R.drawable.onboarding_fields,
@@ -78,7 +73,7 @@ private val steps =
     )
 
 /**
- * 단어장을 처음 가져올 때 AnkiWeb에서 찾고, 가져오고, 필드를 고르는 흐름을 실제 화면으로 보여주는 시트.
+ * 단어장을 처음 가져올 때 AnkiWeb에서 덱을 받고 필드를 고르는 흐름을 실제 화면으로 보여주는 시트.
  * 마지막 단계에서 [onFinish]로 덱을 구하는 방법을 고르는 안내 시트로 넘어간다.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)

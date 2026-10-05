@@ -37,7 +37,8 @@ import kotlinx.coroutines.launch
 
 /**
  * 단어장을 가져오기 전에 Anki 덱으로 단어장을 만들 수 있다는 것과 덱을 구하는 두 방법을 알려주는 시트.
- * 덱이 없는 사람이 더 많을 것이라 AnkiWeb에서 찾기를 크고 진한 카드로 앞에 두고, 내 파일은 작게 뒤에 둔다.
+ * 앱이 하는 일은 파일을 불러오는 것이라 내 파일에서 고르기를 크고 진한 카드로 앞에 두고, AnkiWeb은 작게 뒤에 둔다.
+ * AnkiWeb은 브라우저로 열고, 거기서 받은 파일을 내 파일에서 고른다.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -82,10 +83,10 @@ fun AnkiImportGuideSheet(
             Spacer(Modifier.height(20.dp))
             // 두 방법을 한 그룹으로 붙이고, 맞닿는 모서리만 좁혀 묶음으로 보이게 한다.
             SourceCard(
-                icon = R.drawable.ic_public,
-                title = "AnkiWeb에서 찾기",
-                description = "다운로드만 받으면 바로 가져와요",
-                onClick = { hideThen(onBrowse) },
+                icon = R.drawable.ic_folder_open,
+                title = "내 파일에서 고르기",
+                description = "Anki 덱을 단어장으로 만들어요",
+                onClick = { hideThen(onPickFile) },
                 shape = RoundedCornerShape(32.dp, 32.dp, 8.dp, 8.dp),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -97,10 +98,10 @@ fun AnkiImportGuideSheet(
             )
             Spacer(Modifier.height(4.dp))
             SourceCard(
-                icon = R.drawable.ic_folder_open,
-                title = "내 파일에서 고르기",
-                description = "이미 받아둔 .apkg 파일",
-                onClick = { hideThen(onPickFile) },
+                icon = R.drawable.ic_public,
+                title = "AnkiWeb에서 덱 받기",
+                description = "Anki 덱을 둘러보고 다운받아요",
+                onClick = { hideThen(onBrowse) },
                 shape = RoundedCornerShape(8.dp, 8.dp, 32.dp, 32.dp),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 contentColor = MaterialTheme.colorScheme.onSurface,
