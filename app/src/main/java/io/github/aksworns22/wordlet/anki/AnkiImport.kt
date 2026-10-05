@@ -1,6 +1,7 @@
 package io.github.aksworns22.wordlet.anki
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.CookieManager
@@ -23,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
+import androidx.core.content.edit
 import com.google.firebase.Firebase
 import com.google.firebase.crashlytics.crashlytics
 import kotlinx.coroutines.CoroutineScope
@@ -36,22 +38,30 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
+/** 단어장 가져오기 온보딩을 본 적이 있는지. */
+private const val ONBOARDED_KEY = "anki_import_onboarded"
+
 /** 덱 파일을 내려받지 못했다. 네트워크 문제라 Crashlytics에 보내지 않는다. */
 private class DownloadException(
     cause: Throwable
 ) : IOException(cause)
 
 /**
- * 덱 파일을 구하고 읽는 과정을 담는다. 안내 시트, AnkiWeb 화면, 필드 짝짓기 시트는 [AnkiImportHost]가 그린다.
+ * 덱 파일을 구하고 읽는 과정을 담는다. 온보딩 시트, 안내 시트, AnkiWeb 화면, 필드 짝짓기 시트는 [AnkiImportHost]가 그린다.
  * 덱은 앱 안에서 AnkiWeb으로 내려받거나 기기의 파일에서 고른다.
  */
 @Stable
 class AnkiImportState internal constructor(
     private val context: Context,
     private val scope: CoroutineScope,
-    private val snackbarHostState: SnackbarHostState
+    private val snackbarHostState: SnackbarHostState,
+    private val prefs: SharedPreferences
 ) {
     internal lateinit var picker: ManagedActivityResultLauncher<Array<String>, Uri?>
+
+    /** 가져오는 흐름을 보여주는 온보딩 시트를 띄우는 중인지. */
+    internal var onboarding by mutableStateOf(false)
+        private set
 
     /** 덱을 어디서 구할지 고르는 안내 시트를 띄우는 중인지. */
     internal var guiding by mutableStateOf(false)
@@ -75,9 +85,25 @@ class AnkiImportState internal constructor(
 
     private var reading: Job? = null
 
-    /** 덱을 어디서 구할지 고르는 안내 시트를 띄운다. */
+    /** 덱을 어디서 구할지 고르는 안내 시트를 띄운다. 처음이면 온보딩부터 보여준다. */
     fun start() {
+        if (prefs.getBoolean(ONBOARDED_KEY, false)) guiding = true else onboarding = true
+    }
+
+    internal fun showOnboarding() {
+        guiding = false
+        onboarding = true
+    }
+
+    internal fun finishOnboarding() {
+        closeOnboarding()
         guiding = true
+    }
+
+    /** 끝까지 넘기지 않고 닫아도 본 것으로 친다. */
+    internal fun closeOnboarding() {
+        prefs.edit { putBoolean(ONBOARDED_KEY, true) }
+        onboarding = false
     }
 
     internal fun closeGuide() {
@@ -209,7 +235,15 @@ class AnkiImportState internal constructor(
 fun rememberAnkiImportState(snackbarHostState: SnackbarHostState): AnkiImportState {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val state = remember { AnkiImportState(context, scope, snackbarHostState) }
+    val state =
+        remember {
+            AnkiImportState(
+                context,
+                scope,
+                snackbarHostState,
+                context.getSharedPreferences("wordlet", Context.MODE_PRIVATE)
+            )
+        }
     state.picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) state.read(uri)
@@ -218,7 +252,7 @@ fun rememberAnkiImportState(snackbarHostState: SnackbarHostState): AnkiImportSta
 }
 
 /**
- * [state]에 따라 안내 시트, AnkiWeb 화면, 필드를 짝짓는 시트를 띄운다. [onImport]는 새 단어장 이름과 단어를 받는다.
+ * [state]에 따라 온보딩 시트, 안내 시트, AnkiWeb 화면, 필드를 짝짓는 시트를 띄운다. [onImport]는 새 단어장 이름과 단어를 받는다.
  * AnkiWeb 화면이 앱 화면을 덮도록 화면들보다 나중에 그린다.
  */
 @Composable
@@ -226,10 +260,17 @@ fun AnkiImportHost(
     state: AnkiImportState,
     onImport: (String, List<AnkiWord>) -> Unit
 ) {
+    if (state.onboarding) {
+        AnkiImportOnboardingSheet(
+            onFinish = state::finishOnboarding,
+            onDismiss = state::closeOnboarding
+        )
+    }
     if (state.guiding) {
         AnkiImportGuideSheet(
             onBrowse = state::browse,
             onPickFile = state::pickFile,
+            onShowOnboarding = state::showOnboarding,
             onDismiss = state::closeGuide
         )
     }

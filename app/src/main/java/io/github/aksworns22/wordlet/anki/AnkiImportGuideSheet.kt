@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
@@ -43,6 +44,7 @@ import kotlinx.coroutines.launch
 fun AnkiImportGuideSheet(
     onBrowse: () -> Unit,
     onPickFile: () -> Unit,
+    onShowOnboarding: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -101,6 +103,13 @@ fun AnkiImportGuideSheet(
                 iconSize = 40.dp,
                 verticalPadding = 16.dp
             )
+            Spacer(Modifier.height(8.dp))
+            TextButton(
+                onClick = { hideThen(onShowOnboarding) },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text("가져오는 방법 보기")
+            }
         }
     }
 }
