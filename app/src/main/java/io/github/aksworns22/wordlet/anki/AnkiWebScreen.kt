@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -15,13 +18,19 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,10 +38,12 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
@@ -80,9 +92,41 @@ private const val CLICK_DOWNLOAD_SCRIPT = """
 """
 
 /**
+ * 페이지에 새로 붙는 "Error:" 문구를 지켜보다 앱에 알린다. AnkiWeb은 공유 덱 검색이나 다운로드를 너무 많이 하면
+ * "Error: Please log in to perform more searches." 같은 문구를 띄운다.
+ * 덱 설명처럼 처음부터 있던 글은 보지 않도록 새로 붙은 노드만 본다. 페이지마다 한 번만 건다.
+ */
+private const val WATCH_LIMIT_SCRIPT = """
+(function() {
+  if (window.__wordletLimitWatch) return;
+  window.__wordletLimitWatch = true;
+  new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      mutation.addedNodes.forEach(function(node) {
+        if (/^\s*Error:/.test(node.textContent || '')) WordletBridge.limited();
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+"""
+
+/** 페이지의 스크립트가 앱을 부르는 통로. WebView의 스레드에서 불리므로 [onLimited]는 메인 스레드로 넘겨 부른다. */
+private class LimitBridge(
+    private val onLimited: () -> Unit
+) {
+    private val main = Handler(Looper.getMainLooper())
+
+    @JavascriptInterface
+    fun limited() {
+        main.post(onLimited)
+    }
+}
+
+/**
  * 앱 안에서 AnkiWeb 공유 덱을 둘러보는 화면.
  * 덱 페이지에서 Download를 누르면 [onDownload]로 덱 주소와 이름을 넘겨 앱이 직접 받는다. AnkiWeb 밖의 링크는 브라우저로 연다.
  * 덱 페이지에서는 Download를 찾지 않아도 되도록 페이지 위에 가져오기 버튼을 띄운다.
+ * 공유 덱 한도에 걸리면 페이지를 오류 화면으로 덮고 홈으로 돌려보낸다.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -96,12 +140,14 @@ fun AnkiWebScreen(
     var progress by remember { mutableIntStateOf(0) }
     var canGoBack by remember { mutableStateOf(false) }
     var onDeckPage by remember { mutableStateOf(false) }
+    var limited by remember { mutableStateOf(false) }
     val webView =
         remember {
             WebView(context).apply {
                 // AnkiWeb은 자바스크립트로 그리는 SvelteKit 앱이다.
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+                addJavascriptInterface(LimitBridge { limited = true }, "WordletBridge")
                 webViewClient =
                     object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(
@@ -130,6 +176,13 @@ fun AnkiWebScreen(
                         ) {
                             canGoBack = view.canGoBack()
                             onDeckPage = isDeckPage(url)
+                        }
+
+                        override fun onPageFinished(
+                            view: WebView,
+                            url: String?
+                        ) {
+                            view.evaluateJavascript(WATCH_LIMIT_SCRIPT, null)
                         }
 
                         // AnkiWeb은 페이지를 새로 불러오지 않고 주소만 바꾸므로 여기서도 덱 페이지인지 다시 본다.
@@ -163,7 +216,7 @@ fun AnkiWebScreen(
         onDispose { webView.destroy() }
     }
     BackHandler {
-        if (canGoBack) webView.goBack() else onClose()
+        if (canGoBack && !limited) webView.goBack() else onClose()
     }
 
     Scaffold(
@@ -200,12 +253,19 @@ fun AnkiWebScreen(
                 )
             }
             AnimatedVisibility(
-                visible = onDeckPage,
+                visible = onDeckPage && !limited,
                 enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeIn(),
                 exit = slideOutVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 ImportButton(onClick = { webView.evaluateJavascript(CLICK_DOWNLOAD_SCRIPT, null) })
+            }
+            AnimatedVisibility(
+                visible = limited,
+                enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it / 4 } + fadeIn(),
+                exit = fadeOut()
+            ) {
+                LimitScreen(onHome = onClose)
             }
         }
     }
@@ -241,6 +301,68 @@ private fun ImportButton(onClick: () -> Unit) {
         ) {
             Text(
                 text = "이 단어장 가져오기",
+                style = MaterialTheme.typography.headlineSmallEmphasized,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+/** 공유 덱 한도에 걸렸을 때 페이지를 덮는 오류 화면. 할 수 있는 일은 홈으로 돌아가는 것뿐이다. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun LimitScreen(onHome: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val height = 64.dp
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(colors.surface)
+                .navigationBarsPadding()
+                .padding(16.dp)
+    ) {
+        Spacer(Modifier.weight(1f))
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier =
+                Modifier
+                    .size(120.dp)
+                    .background(colors.errorContainer, MaterialShapes.SoftBurst.toShape())
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_priority_high),
+                contentDescription = null,
+                tint = colors.onErrorContainer,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+        Text(
+            text = "AnkiWeb 공유 덱 한도에 걸렸어요",
+            style = MaterialTheme.typography.headlineSmallEmphasized,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "잠시 뒤에 다시 찾아 주세요.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.weight(1f))
+        Button(
+            onClick = onHome,
+            shapes = ButtonDefaults.shapesFor(height),
+            contentPadding = ButtonDefaults.contentPaddingFor(height),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = height)
+        ) {
+            Text(
+                text = "홈으로 돌아가기",
                 style = MaterialTheme.typography.headlineSmallEmphasized,
                 fontWeight = FontWeight.Bold
             )
