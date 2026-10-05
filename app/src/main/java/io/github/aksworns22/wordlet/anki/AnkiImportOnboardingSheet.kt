@@ -63,7 +63,7 @@ private val steps =
         OnboardingStep(
             screenshot = R.drawable.onboarding_browse,
             title = "AnkiWeb에서 덱 받기",
-            description = "Anki 덱을 둘러보고, 마음에 드는 덱을 다운로드해요"
+            description = "Anki 덱을 둘러보고 마음에 드는 덱을 다운로드해요"
         ),
         OnboardingStep(
             screenshot = R.drawable.onboarding_fields,

@@ -70,7 +70,7 @@ fun AnkiImportGuideSheet(
                         .padding(horizontal = 4.dp)
                 )
                 TextButton(onClick = { hideThen(onShowOnboarding) }) {
-                    Text("튜토리얼")
+                    Text("방법 보기")
                 }
             }
             Spacer(Modifier.height(8.dp))
