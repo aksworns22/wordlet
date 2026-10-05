@@ -14,8 +14,13 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -262,8 +267,8 @@ fun AnkiWebScreen(
             }
             AnimatedVisibility(
                 visible = limited,
-                enter = slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it / 4 } + fadeIn(),
-                exit = fadeOut()
+                enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                exit = fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec())
             ) {
                 LimitScreen(onHome = onClose)
             }
@@ -311,7 +316,7 @@ private fun ImportButton(onClick: () -> Unit) {
 /** 공유 덱 한도에 걸렸을 때 페이지를 덮는 오류 화면. 할 수 있는 일은 홈으로 돌아가는 것뿐이다. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun LimitScreen(onHome: () -> Unit) {
+private fun AnimatedVisibilityScope.LimitScreen(onHome: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val height = 64.dp
     Column(
@@ -326,9 +331,17 @@ private fun LimitScreen(onHome: () -> Unit) {
         Spacer(Modifier.weight(1f))
         Box(
             contentAlignment = Alignment.Center,
+            // 화면은 제자리에서 페이드되고, 아이콘만 튀어나와 시선을 모은다.
             modifier =
                 Modifier
-                    .size(120.dp)
+                    .animateEnterExit(
+                        enter =
+                            scaleIn(
+                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                initialScale = 0.3f
+                            ),
+                        exit = ExitTransition.None
+                    ).size(120.dp)
                     .background(colors.errorContainer, MaterialShapes.SoftBurst.toShape())
         ) {
             Icon(
