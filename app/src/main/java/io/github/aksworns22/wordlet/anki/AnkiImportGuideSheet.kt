@@ -60,14 +60,21 @@ fun AnkiImportGuideSheet(
         sheetState = sheetState
     ) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-            Text(
-                text = "단어장 가져오기",
-                style = MaterialTheme.typography.headlineSmallEmphasized,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "단어장 가져오기",
+                    style = MaterialTheme.typography.headlineSmallEmphasized,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 4.dp)
+                )
+                TextButton(onClick = { hideThen(onShowOnboarding) }) {
+                    Text("튜토리얼")
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "단어를 하나하나 입력할 필요 없어요. 이미 만들어진 Anki 덱을 그대로 가져와요.",
+                text = "단어를 하나하나 입력할 필요 없어요.\n이미 만들어진 Anki 덱을 그대로 가져와요.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp)
@@ -103,13 +110,6 @@ fun AnkiImportGuideSheet(
                 iconSize = 40.dp,
                 verticalPadding = 16.dp
             )
-            Spacer(Modifier.height(8.dp))
-            TextButton(
-                onClick = { hideThen(onShowOnboarding) },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text("가져오는 방법 보기")
-            }
         }
     }
 }
