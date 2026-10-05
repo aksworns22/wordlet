@@ -346,7 +346,7 @@ private fun LimitScreen(onHome: () -> Unit) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "잠시 뒤에 다시 찾아 주세요.",
+            text = "AnkiWeb은 wordlet과 별개인 사이트라 앱에서 한도를 풀 수 없어요. 잠시 뒤에 다시 찾아 주세요.",
             style = MaterialTheme.typography.bodyLarge,
             color = colors.onSurfaceVariant,
             textAlign = TextAlign.Center
